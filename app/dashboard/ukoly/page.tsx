@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Calendar, CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
+import TaskActions from '@/components/tasks/task-actions'
 
 export default async function UkolyPage() {
     const supabase = await createClient()
@@ -55,6 +56,7 @@ export default async function UkolyPage() {
                                 <th className="px-6 py-4 font-medium text-gray-300">Priorita</th>
                                 <th className="px-6 py-4 font-medium text-gray-300">Termín</th>
                                 <th className="px-6 py-4 font-medium text-gray-300">Řešitel</th>
+                                <th className="px-6 py-4 font-medium text-gray-300"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -91,11 +93,14 @@ export default async function UkolyPage() {
                                             <span className="text-gray-300">{task.profiles?.full_name}</span>
                                         </div>
                                     </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <TaskActions taskId={task.id} taskTitle={task.title} />
+                                    </td>
                                 </tr>
                             ))}
                             {(!tasks || tasks.length === 0) && (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                         Zatím žádné úkoly.
                                     </td>
                                 </tr>
