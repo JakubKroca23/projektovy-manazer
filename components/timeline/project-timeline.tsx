@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, startOfYear, endOfYear, isBefore, isAfter } from 'date-fns'
 import { cs } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, ChevronRight as ChevronRightIcon, Truck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, ChevronRight as ChevronRightIcon, Truck, Wrench } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -42,8 +42,19 @@ interface Project {
     jobs?: Job[]
 }
 
-export default function ProjectTimeline({ projects: initialProjects }: { projects: Project[] }) {
+export interface Service {
+    id: string
+    name: string
+    description: string | null
+    start_date: string | null
+    end_date: string | null
+    status: string
+    created_at: string
+}
+
+export default function ProjectTimeline({ projects: initialProjects, services: initialServices = [] }: { projects: Project[], services?: Service[] }) {
     const [projects, setProjects] = useState(initialProjects)
+    const [services, setServices] = useState(initialServices) // Use state for optimistic updates
     const [viewMode, setViewMode] = useState<ViewMode>('year')
     const [currentDate, setCurrentDate] = useState(new Date())
 
@@ -56,11 +67,12 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
         initialProjects.forEach(p => p.jobs?.forEach(j => jobs.add(j.id)))
         return jobs
     })
+    const [showServices, setShowServices] = useState(true)
 
     // Drag & Drop State
     const [isDragging, setIsDragging] = useState(false)
     const [dragType, setDragType] = useState<'move' | 'resize-start' | 'resize-end' | null>(null)
-    const [dragItemType, setDragItemType] = useState<'project' | 'job' | 'task' | null>(null)
+    const [dragItemType, setDragItemType] = useState<'project' | 'job' | 'task' | 'service' | null>(null)
     const [dragItemId, setDragItemId] = useState<string | null>(null)
     const [dragStartX, setDragStartX] = useState(0)
     const [dragInitialDates, setDragInitialDates] = useState<{ start: Date, end: Date } | null>(null)
@@ -72,6 +84,10 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     useEffect(() => {
         setProjects(initialProjects)
     }, [initialProjects])
+
+    useEffect(() => {
+        setServices(initialServices)
+    }, [initialServices])
 
     // Generování časové osy
     const timelineData = useMemo(() => {
@@ -103,7 +119,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     const getPosition = (start: string | null, end: string | null, created: string) => {
         const timelineStart = timelineData.startDate
         const itemStart = start ? new Date(start) : new Date(created)
-        const itemEnd = end ? new Date(end) : addDays(itemStart, 30) // Default duration
+        const itemEnd = end ? new Date(end) : addDays(itemStart, 1) // Default duration 1 day if undefined
 
         const startDiff = differenceInDays(itemStart, timelineStart)
         const duration = differenceInDays(itemEnd, itemStart)
@@ -122,13 +138,18 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     }
 
     // Drag Handlers
-    const handleMouseDown = (e: React.MouseEvent, itemId: string, itemType: 'project' | 'job' | 'task', type: 'move' | 'resize-start' | 'resize-end') => {
+    const handleMouseDown = (e: React.MouseEvent, itemId: string, itemType: 'project' | 'job' | 'task' | 'service', type: 'move' | 'resize-start' | 'resize-end') => {
         e.preventDefault()
         e.stopPropagation()
 
         let item: { start: string | null | undefined, end: string | null, created: string } | null = null
 
-        if (itemType === 'project') {
+        if (itemType === 'service') {
+            const service = services.find(s => s.id === itemId)
+            if (service) {
+                item = { start: service.start_date, end: service.end_date, created: service.created_at }
+            }
+        } else if (itemType === 'project') {
             const project = projects.find(p => p.id === itemId)
             if (project) {
                 item = { start: project.expected_start_date, end: project.deadline, created: project.created_at }
@@ -139,7 +160,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                 if (job) {
                     item = {
                         start: job.start_date || job.created_at,
-                        end: job.expected_completion_date || job.deadline, // Use expected completion as end visually
+                        end: job.expected_completion_date || job.deadline,
                         created: job.created_at
                     }
                     break
@@ -165,7 +186,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
         setDragStartX(e.clientX)
 
         const start = item.start ? new Date(item.start) : new Date(item.created)
-        const end = item.end ? new Date(item.end) : addDays(start, 30)
+        const end = item.end ? new Date(item.end) : addDays(start, 1)
 
         setDragInitialDates({ start, end })
     }
@@ -178,7 +199,6 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
         const pixelsPerDay = containerWidth / timelineData.totalDays
         const deltaDays = Math.round(deltaPixels / pixelsPerDay)
 
-        // Ensure real-time update even for small movements if needed, but deltaDays is safer
         if (deltaDays === 0 && dragType === 'move') return
 
         let newStart = new Date(dragInitialDates.start)
@@ -186,7 +206,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
 
         if (dragType === 'move') {
             newStart = addDays(newStart, deltaDays)
-            newEnd = addDays(newEnd, deltaDays) // Move both start and end
+            newEnd = addDays(newEnd, deltaDays)
         } else if (dragType === 'resize-start') {
             newStart = addDays(newStart, deltaDays)
             if (differenceInDays(newEnd, newStart) < 1) newStart = addDays(newEnd, -1)
@@ -198,6 +218,13 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
         const newStartIso = newStart.toISOString()
         const newEndIso = newEnd.toISOString()
 
+        if (dragItemType === 'service') {
+            setServices(prev => prev.map(s =>
+                s.id === dragItemId ? { ...s, start_date: newStartIso, end_date: newEndIso } : s
+            ))
+            return
+        }
+
         setProjects(prev => prev.map(p => {
             if (dragItemType === 'project' && p.id === dragItemId) {
                 return { ...p, expected_start_date: newStartIso, deadline: newEndIso }
@@ -208,12 +235,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                     ...p,
                     jobs: p.jobs?.map(j => {
                         if (j.id === dragItemId) {
-                            // Update start_date and expected_completion
-                            return {
-                                ...j,
-                                start_date: newStartIso,
-                                expected_completion_date: newEndIso
-                            }
+                            return { ...j, start_date: newStartIso, expected_completion_date: newEndIso }
                         }
                         return j
                     })
@@ -238,8 +260,16 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     const handleMouseUp = async () => {
         if (!isDragging || !dragItemId || !dragItemType) return
 
-        // Persist to DB
-        if (dragItemType === 'project') {
+        if (dragItemType === 'service') {
+            const service = services.find(s => s.id === dragItemId)
+            if (service) {
+                await supabase.from('services').update({
+                    start_date: service.start_date,
+                    end_date: service.end_date
+                }).eq('id', dragItemId)
+                router.refresh()
+            }
+        } else if (dragItemType === 'project') {
             const project = projects.find(p => p.id === dragItemId)
             if (project) {
                 await supabase.from('projects').update({
@@ -249,20 +279,21 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                 router.refresh()
             }
         } else if (dragItemType === 'job') {
+            // ... (same as before)
             let jobToUpdate: Job | undefined
             for (const p of projects) {
                 jobToUpdate = p.jobs?.find(j => j.id === dragItemId)
                 if (jobToUpdate) break
             }
             if (jobToUpdate) {
-                // Update start_date and expected_completion_date
                 await supabase.from('jobs').update({
                     start_date: jobToUpdate.start_date,
                     expected_completion_date: jobToUpdate.expected_completion_date,
                 }).eq('id', dragItemId)
                 router.refresh()
             }
-        } else {
+        } else if (dragItemType === 'task') {
+            // ...
             let taskToUpdate: Task | undefined
             for (const p of projects) {
                 taskToUpdate = p.tasks?.find(t => t.id === dragItemId)
@@ -331,20 +362,21 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                     </button>
                     <button
                         onClick={() => {
-                            // Toggle all logic
-                            if (expandedProjects.size > 0) {
+                            if (expandedProjects.size > 0 || showServices) {
                                 setExpandedProjects(new Set())
                                 setExpandedJobs(new Set())
+                                setShowServices(false)
                             } else {
                                 setExpandedProjects(new Set(projects.map(p => p.id)))
                                 const jobs = new Set<string>()
                                 projects.forEach(p => p.jobs?.forEach(j => jobs.add(j.id)))
                                 setExpandedJobs(jobs)
+                                setShowServices(true)
                             }
                         }}
                         className="text-xs text-gray-400 hover:text-white ml-4 border border-white/10 px-2 py-1 rounded"
                     >
-                        {expandedProjects.size > 0 ? 'Sbalit vše' : 'Rozbalit vše'}
+                        {expandedProjects.size > 0 || showServices ? 'Sbalit vše' : 'Rozbalit vše'}
                     </button>
                 </div>
 
@@ -360,7 +392,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                 {/* Header Row */}
                 <div className="flex border-b border-white/10 bg-white/5 h-12">
                     <div className="w-72 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center pl-4">
-                        Projekt / Zakázka / Úkol
+                        Projekt / Zakázka / Servis
                     </div>
                     <div className="flex-1 relative overflow-hidden" ref={containerRef}>
                         <div className="absolute inset-0 flex">
@@ -375,17 +407,64 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
 
                 {/* Rows */}
                 <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+
+                    {/* Services Section */}
+                    {services.length > 0 && (
+                        <div className="border-b border-white/5 bg-red-900/10">
+                            <div className="flex group hover:bg-white/[0.02] transition-colors relative h-10 bg-white/[0.02]">
+                                <div className="w-72 p-2 pl-2 border-r border-white/10 shrink-0 z-20 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2">
+                                    <button onClick={() => setShowServices(!showServices)} className="p-1 hover:bg-white/10 rounded text-gray-400">
+                                        {showServices ? <ChevronDown className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
+                                    </button>
+                                    <Wrench className="w-4 h-4 text-red-500" />
+                                    <span className="font-bold text-red-400 truncate">SERVISY</span>
+                                </div>
+                                <div className="flex-1 relative min-w-[300px]">
+                                    <div className="absolute inset-0 flex pointer-events-none">
+                                        {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {showServices && services.map(service => {
+                                const style = getPosition(service.start_date, service.end_date, service.created_at)
+                                return (
+                                    <div key={service.id} className="flex group hover:bg-white/[0.02] transition-colors relative h-8 bg-black/20">
+                                        <div className="w-72 p-2 pl-8 border-r border-white/10 shrink-0 z-10 bg-[#161b28] sticky left-0 flex items-center">
+                                            <span className="truncate text-sm text-gray-300 hover:text-white transition-colors block">
+                                                {service.name}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 relative min-w-[300px]">
+                                            <div className="absolute inset-0 flex pointer-events-none">
+                                                {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
+                                            </div>
+                                            {style && (
+                                                <div className={`absolute top-1.5 h-5 rounded-sm border transition-shadow cursor-move group/servicetbar ${isDragging && dragItemType === 'service' && dragItemId === service.id ? 'ring-1 ring-white z-30 bg-red-600' : 'bg-red-600/60 border-red-500/50 hover:bg-red-600'}`}
+                                                    style={style} onMouseDown={(e) => handleMouseDown(e, service.id, 'service', 'move')}>
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-white/40 z-20" onMouseDown={(e) => handleMouseDown(e, service.id, 'service', 'resize-start')} />
+                                                    <div className="px-2 text-[10px] text-red-100 truncate w-full h-full flex items-center pointer-events-none uppercase font-bold tracking-wider">{service.status}</div>
+                                                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-white/40 z-20" onMouseDown={(e) => handleMouseDown(e, service.id, 'service', 'resize-end')} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Projects... */}
                     {projects.map(project => {
                         const style = getPosition(project.expected_start_date, project.deadline, project.created_at)
                         const isExpanded = expandedProjects.has(project.id)
 
-                        // Tasks directly under project (no job)
                         const projectTasks = project.tasks?.filter(t => !t.job_id) || []
                         const projectJobs = project.jobs || []
 
                         return (
                             <div key={project.id} className="border-b border-white/5">
-                                {/* Project Row */}
+                                {/* Project Row - same as before */}
                                 <div className="flex group hover:bg-white/[0.02] transition-colors relative h-12 bg-white/[0.02]">
                                     <div className="w-72 p-2 pl-2 border-r border-white/10 shrink-0 z-20 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2">
                                         <button onClick={() => toggleProject(project.id)} className="p-1 hover:bg-white/10 rounded text-gray-400">
@@ -455,7 +534,6 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                                         {projectJobs.map(job => {
                                             const jobExpanded = expandedJobs.has(job.id)
                                             const jobTasks = project.tasks?.filter(t => t.job_id === job.id) || []
-                                            // Utilize job.start_date if available, otherwise created_at
                                             const jobStyle = getPosition(job.start_date || job.created_at, job.expected_completion_date || job.deadline, job.created_at)
 
                                             return (
@@ -525,6 +603,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
             </div>
 
             <div className="flex justify-end space-x-4 text-xs text-gray-500">
+                <div className="flex items-center"><div className="w-3 h-3 bg-red-600 rounded mr-2"></div> Servis</div>
                 <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 rounded mr-2"></div> Projekt (Plánování)</div>
                 <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded mr-2"></div> Projekt (Aktivní)</div>
                 <div className="flex items-center"><div className="w-3 h-3 bg-orange-600/60 rounded mr-2"></div> Zakázka (Vozidlo)</div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Calendar, Table2 } from 'lucide-react'
-import ProjectTimeline from '@/components/timeline/project-timeline'
+import ProjectTimeline, { Service } from '@/components/timeline/project-timeline'
 import ProjectTable from '@/components/projects/project-table'
 
 interface Project {
@@ -34,7 +34,7 @@ interface Project {
     }[]
 }
 
-export default function ProjectViews({ projects }: { projects: Project[] }) {
+export default function ProjectViews({ projects, services = [] }: { projects: Project[], services?: Service[] }) {
     const [view, setView] = useState<'timeline' | 'table'>('timeline')
 
     return (
@@ -66,7 +66,7 @@ export default function ProjectViews({ projects }: { projects: Project[] }) {
             {/* Content */}
             <div className="min-h-[500px]">
                 {view === 'timeline' ? (
-                    <ProjectTimeline projects={projects} />
+                    <ProjectTimeline projects={projects} services={services} />
                 ) : (
                     <ProjectTable projects={projects} />
                 )}

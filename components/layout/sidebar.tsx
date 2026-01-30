@@ -6,7 +6,6 @@ import { LayoutDashboard, FolderKanban, CheckSquare, Users, BarChart3, Settings 
 import { cn } from '@/lib/utils'
 
 const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Projekty', href: '/dashboard/projekty', icon: FolderKanban },
     { name: 'Úkoly', href: '/dashboard/ukoly', icon: CheckSquare },
     { name: 'Tým', href: '/dashboard/tym', icon: Users },
