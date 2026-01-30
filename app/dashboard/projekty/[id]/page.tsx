@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Calendar, CheckSquare, Users, Clock, Plus, MoreHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import { formatDate } from '@/lib/utils'
+import ProjectActions from '@/components/projects/project-actions'
 
 interface PageProps {
     params: Promise<{ id: string }>
@@ -81,9 +82,6 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     </div>
                     <p className="text-gray-400 max-w-2xl">{project.description}</p>
                 </div>
-                import ProjectActions from '@/components/projects/project-actions'
-
-                // ... (inside component)
                 <div className="flex space-x-3">
                     <ProjectActions projectId={project.id} projectName={project.name} />
                 </div>
