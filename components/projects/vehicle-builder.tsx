@@ -46,7 +46,7 @@ export default function VehicleBuilder({
     const [data, setData] = useState<VehicleData>(() => {
         // Initialize from props or defaults
         const config = initialData.config || '4x2'
-        const defaultAxles = getDefaultAxlePositions(config) // relative to Zero Point 0
+        const defaultAxles = getDefaultAxleOffsetsMM(config) // relative to Zero Point 0
 
         let axles = initialData.axlePositions // expect positions relative to frame start or handled? 
         // Let's standardize: axlePositions coming in props might be legacy (absolute SVG coords).

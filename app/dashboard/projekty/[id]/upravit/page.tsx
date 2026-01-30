@@ -43,6 +43,8 @@ export default function UpravitProjektPage() {
         bodies: [] as BodyItem[],
         axlePositions: [] as number[],
         chassisLength: 800, // Default visualization length
+        frontOverhang: 1400,
+        rearOverhang: 0,
         accessories: [] as AccessoryItem[]
     })
 
@@ -101,6 +103,8 @@ export default function UpravitProjektPage() {
                     bodies: data.bodies ? (data.bodies as unknown as BodyItem[]) : [],
                     axlePositions: axles,
                     chassisLength: length,
+                    frontOverhang: 1400,
+                    rearOverhang: 0,
                     accessories: data.accessories ? (data.accessories as unknown as AccessoryItem[]) : []
                 })
             }
@@ -122,7 +126,9 @@ export default function UpravitProjektPage() {
             vehicle_brand: spec.brand,
             bodies: spec.bodies,
             axlePositions: spec.axlePositions || [],
-            chassisLength: spec.chassisLength || 800
+            chassisLength: spec.chassisLength || 800,
+            frontOverhang: spec.frontOverhang || 1400,
+            rearOverhang: spec.rearOverhang || 0
         }))
     }
 

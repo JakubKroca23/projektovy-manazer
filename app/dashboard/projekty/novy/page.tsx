@@ -44,7 +44,9 @@ export default function NovyProjektPage() {
         brand: '',
         bodies: [],
         axlePositions: [],
-        chassisLength: 800
+        chassisLength: 800,
+        frontOverhang: 1400,
+        rearOverhang: 0
     })
 
     const [accessories, setAccessories] = useState<AccessoryItem[]>([])
