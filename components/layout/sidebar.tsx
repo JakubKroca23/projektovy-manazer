@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, CheckSquare, Users, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, CheckSquare, Users, BarChart3, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navigation = [
@@ -11,6 +11,7 @@ const navigation = [
     { name: 'Úkoly', href: '/dashboard/ukoly', icon: CheckSquare },
     { name: 'Kanban', href: '/dashboard/kanban', icon: BarChart3 },
     { name: 'Tým', href: '/dashboard/tym', icon: Users },
+    { name: 'Nastavení', href: '/dashboard/nastaveni', icon: Settings },
 ]
 
 export default function Sidebar({ user }: { user: any }) {
