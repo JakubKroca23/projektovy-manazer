@@ -17,15 +17,18 @@ export default async function ProjektyPage() {
       created_at,
       expected_start_date,
       deadline,
-      customer,
-      project_manager,
-      tasks (
-        id,
-        title,
-        status,
         due_date,
         created_at,
-        start_date
+        start_date,
+        job_id
+      ),
+      jobs (
+        id,
+        name,
+        status,
+        deadline,
+        expected_completion_date,
+        created_at
       )
     `)
         .order('created_at', { ascending: false })

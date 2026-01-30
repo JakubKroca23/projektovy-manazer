@@ -21,6 +21,15 @@ interface Project {
         due_date: string | null
         created_at: string
         start_date?: string | null
+        job_id?: string | null
+    }[]
+    jobs?: {
+        id: string
+        name: string
+        status: string
+        deadline: string | null
+        expected_completion_date: string | null
+        created_at: string
     }[]
 }
 
