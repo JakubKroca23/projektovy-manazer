@@ -45,12 +45,8 @@ export default function NovyProjektPage() {
             return
         }
 
-        // Add creator as project owner
-        await supabase.from('project_members').insert({
-            project_id: project.id,
-            user_id: user.id,
-            role: 'owner',
-        })
+
+        // Note: Project creator is automatically added as owner via DB trigger
 
         router.push(`/dashboard/projekty/${project.id}`)
         router.refresh()
