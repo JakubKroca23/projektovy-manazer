@@ -37,10 +37,12 @@ const CHASSIS_Y = 310 // Frame top height (approx 1m from ground visually, adjus
 
 export default function VehicleBuilder({
     initialData,
-    onChange
+    onChange,
+    readOnly = false
 }: {
     initialData: any,
-    onChange: (data: any) => void
+    onChange: (data: any) => void,
+    readOnly?: boolean
 }) {
     // --- STATE ---
     const [data, setData] = useState<VehicleData>(() => {
@@ -229,30 +231,32 @@ export default function VehicleBuilder({
         <div className="bg-[#1e293b] rounded-xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col h-auto">
 
             {/* TOOLBAR */}
-            <div className="bg-slate-900 p-2 flex items-center justify-between border-b border-slate-700">
-                <div className="flex items-center space-x-4">
-                    <span className="text-slate-400 text-xs font-mono px-2">TRAILERWIN-LIKE CONFIGURATOR v1.0</span>
-                    <div className="h-4 w-px bg-slate-700"></div>
-                    <select
-                        value={data.config}
-                        onChange={(e) => setData(prev => ({ ...prev, config: e.target.value }))}
-                        className="bg-slate-800 text-slate-200 text-xs border border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
-                    >
-                        {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x8'].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select
-                        value={data.brand}
-                        onChange={(e) => setData(prev => ({ ...prev, brand: e.target.value }))}
-                        className="bg-slate-800 text-slate-200 text-xs border border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
-                    >
-                        {['Tatra', 'Mercedes', 'Volvo', 'Scania', 'MAN', 'DAF', 'Iveco'].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
+            {!readOnly && (
+                <div className="bg-slate-900 p-2 flex items-center justify-between border-b border-slate-700">
+                    <div className="flex items-center space-x-4">
+                        <span className="text-slate-400 text-xs font-mono px-2">TRAILERWIN-LIKE CONFIGURATOR v1.0</span>
+                        <div className="h-4 w-px bg-slate-700"></div>
+                        <select
+                            value={data.config}
+                            onChange={(e) => setData(prev => ({ ...prev, config: e.target.value }))}
+                            className="bg-slate-800 text-slate-200 text-xs border border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
+                        >
+                            {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x8'].map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                        <select
+                            value={data.brand}
+                            onChange={(e) => setData(prev => ({ ...prev, brand: e.target.value }))}
+                            className="bg-slate-800 text-slate-200 text-xs border border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
+                        >
+                            {['Tatra', 'Mercedes', 'Volvo', 'Scania', 'MAN', 'DAF', 'Iveco'].map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded" title="Reset View"><RefreshCw className="w-4 h-4" /></button>
+                        <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded" title="Download PDF"><Download className="w-4 h-4" /></button>
+                    </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded" title="Reset View"><RefreshCw className="w-4 h-4" /></button>
-                    <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded" title="Download PDF"><Download className="w-4 h-4" /></button>
-                </div>
-            </div>
+            )}
 
             {/* MAIN WORKSPACE - SPLIT VIEW */}
             <div className="flex flex-col lg:flex-row flex-1">
@@ -466,87 +470,89 @@ export default function VehicleBuilder({
                 </div>
 
                 {/* SIDEBAR PROPERTIES PANEL */}
-                <div className="w-full lg:w-80 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto max-h-[500px]">
-                    <h3 className="text-slate-100 font-bold mb-4 flex items-center">
-                        <Scale className="w-4 h-4 mr-2" /> Vlastnosti
-                    </h3>
+                {!readOnly && (
+                    <div className="w-full lg:w-80 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto max-h-[500px]">
+                        <h3 className="text-slate-100 font-bold mb-4 flex items-center">
+                            <Scale className="w-4 h-4 mr-2" /> Vlastnosti
+                        </h3>
 
-                    {/* Add Component List */}
-                    <div className="mb-6">
-                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Komponenty</div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {BODY_TYPES.slice(0, 6).map(type => (
-                                <button
-                                    key={type}
-                                    onClick={() => addBody(type)}
-                                    className="bg-slate-700 hover:bg-blue-600 text-slate-200 text-xs py-2 px-3 rounded text-left transition-colors flex items-center justify-between"
-                                >
-                                    <span>{type}</span>
-                                    <Plus className="w-3 h-3 opacity-50" />
-                                </button>
+                        {/* Add Component List */}
+                        <div className="mb-6">
+                            <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Komponenty</div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {BODY_TYPES.slice(0, 6).map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => addBody(type)}
+                                        className="bg-slate-700 hover:bg-blue-600 text-slate-200 text-xs py-2 px-3 rounded text-left transition-colors flex items-center justify-between"
+                                    >
+                                        <span>{type}</span>
+                                        <Plus className="w-3 h-3 opacity-50" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Active Bodies List with Details */}
+                        <div className="space-y-4">
+                            {data.bodies.map((body, i) => (
+                                <div key={body.id} className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="font-bold text-slate-200 text-sm">{body.type}</span>
+                                        <button onClick={() => removeBody(body.id)} className="text-slate-400 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-slate-400">Pozice (mm)</label>
+                                            <input
+                                                type="number"
+                                                value={Math.round(body.x)}
+                                                onChange={(e) => updateBody(body.id, 'x', parseInt(e.target.value))}
+                                                className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-yellow-400 font-mono"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-slate-400">Délka (mm)</label>
+                                            <input
+                                                type="number"
+                                                value={Math.round(body.width)}
+                                                onChange={(e) => updateBody(body.id, 'width', parseInt(e.target.value))}
+                                                className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-slate-200 font-mono"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-slate-400">Váha (kg)</label>
+                                            <input
+                                                type="number"
+                                                value={body.weight || 0}
+                                                onChange={(e) => updateBody(body.id, 'weight', parseInt(e.target.value))}
+                                                className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-green-400 font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
                         </div>
-                    </div>
 
-                    {/* Active Bodies List with Details */}
-                    <div className="space-y-4">
-                        {data.bodies.map((body, i) => (
-                            <div key={body.id} className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="font-bold text-slate-200 text-sm">{body.type}</span>
-                                    <button onClick={() => removeBody(body.id)} className="text-slate-400 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-slate-400">Pozice (mm)</label>
-                                        <input
-                                            type="number"
-                                            value={Math.round(body.x)}
-                                            onChange={(e) => updateBody(body.id, 'x', parseInt(e.target.value))}
-                                            className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-yellow-400 font-mono"
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-slate-400">Délka (mm)</label>
-                                        <input
-                                            type="number"
-                                            value={Math.round(body.width)}
-                                            onChange={(e) => updateBody(body.id, 'width', parseInt(e.target.value))}
-                                            className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-slate-200 font-mono"
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-xs text-slate-400">Váha (kg)</label>
-                                        <input
-                                            type="number"
-                                            value={body.weight || 0}
-                                            onChange={(e) => updateBody(body.id, 'weight', parseInt(e.target.value))}
-                                            className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-green-400 font-mono"
-                                        />
-                                    </div>
-                                </div>
+                        {/* Chassis Stats */}
+                        <div className="mt-6 pt-4 border-t border-slate-700">
+                            <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Souhrn</div>
+                            <div className="flex justify-between text-sm text-slate-300 mb-1">
+                                <span>Celková délka:</span>
+                                <span className="font-mono">{Math.round((data.chassisLength + data.frontOverhang))} mm</span>
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex justify-between text-sm text-slate-300 mb-1">
+                                <span>Rozvory:</span>
+                                <span className="font-mono text-xs">{data.axlePositions.map((p, i) => i > 0 ? (p - data.axlePositions[i - 1]) : null).filter(Boolean).join(' + ')}</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-slate-300">
+                                <span>Váha nástaveb:</span>
+                                <span className="font-mono text-green-400">{data.bodies.reduce((a, b) => a + (b.weight || 0), 0)} kg</span>
+                            </div>
+                        </div>
 
-                    {/* Chassis Stats */}
-                    <div className="mt-6 pt-4 border-t border-slate-700">
-                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Souhrn</div>
-                        <div className="flex justify-between text-sm text-slate-300 mb-1">
-                            <span>Celková délka:</span>
-                            <span className="font-mono">{Math.round((data.chassisLength + data.frontOverhang))} mm</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-slate-300 mb-1">
-                            <span>Rozvory:</span>
-                            <span className="font-mono text-xs">{data.axlePositions.map((p, i) => i > 0 ? (p - data.axlePositions[i - 1]) : null).filter(Boolean).join(' + ')}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-slate-300">
-                            <span>Váha nástaveb:</span>
-                            <span className="font-mono text-green-400">{data.bodies.reduce((a, b) => a + (b.weight || 0), 0)} kg</span>
-                        </div>
                     </div>
-
-                </div>
+                )}
             </div>
         </div>
     )

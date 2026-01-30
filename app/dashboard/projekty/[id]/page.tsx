@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import ProjectActions from '@/components/projects/project-actions'
 
 import GenerateJobsButton from '@/components/projects/generate-jobs-button'
+import VehicleBuilder from '@/components/projects/vehicle-builder'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -121,24 +122,60 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </div>
             </div>
 
-            {/* Specifikace vozidla */}
-            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6">
-                <h2 className="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2 flex items-center">
-                    <Truck className="w-5 h-5 mr-2 text-purple-400" />
-                    Specifikace vozidla
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+// Make sure VehicleBuilder is imported at top. (It is not!, wait, check line 2/9 in previous view_file of project detail? No, it wasn't. I need to add import first, but I can do it in separate view or just assume... wait, I need to check imports first.)
+// Actually, let's look at the file provided in step 68.
+// Imports:
+// import {createClient} from '@/lib/supabase/server'
+// import {ArrowLeft, ... } from 'lucide-react'
+// import Link from 'next/link'
+// import {notFound} from 'next/navigation'
+            // import ProjectActions from '@/components/projects/project-actions'
+            // import GenerateJobsButton from '@/components/projects/generate-jobs-button'
+            // It is NOT imported. I will do 2 Replace calls. First imports, then usage.
+
+            // THIS CALL IS FOR USAGE.
+            {/* Specifikace vozidla - Vykres */}
+            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-white flex items-center">
+                        <Truck className="w-5 h-5 mr-2 text-purple-400" />
+                        Technický výkres vozidla
+                    </h2>
+                    <Link href={`/dashboard/projekty/${id}/upravit`} className="text-xs text-purple-400 hover:text-purple-300">
+                        Upravit konfiguraci
+                    </Link>
+                </div>
+
+                {/* Embed VehicleBuilder in ReadOnly Mode */}
+                <div className="bg-[#0f172a] border-b border-white/10">
+                    <VehicleBuilder
+                        initialData={{
+                            config: project.vehicle_config,
+                            brand: project.vehicle_brand,
+                            bodies: project.bodies,
+                            axlePositions: project.axle_positions?.positions || project.axle_positions,
+                            chassisLength: project.axle_positions?.chassisLength || 8000
+                        }}
+                        readOnly={true}
+                        onChange={() => { }}
+                    />
+                </div>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
                     <div className="space-y-3">
                         <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Konfigurace</span> <span className="text-white font-medium">{project.vehicle_config || '-'}</span></div>
                         <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Značka</span> <span className="text-white">{project.vehicle_brand || '-'}</span></div>
                     </div>
                     <div className="space-y-3">
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Typ nástavby</span> <span className="text-white">{project.body_type || '-'}</span></div>
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Jeřáb</span> <span className="text-white">{project.crane_type || '-'}</span></div>
-                    </div>
-                    <div className="space-y-3">
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Podpěry</span> <span className="text-white">{project.outriggers_type || '-'}</span></div>
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Čerpadlo</span> <span className="text-white">{project.pump_type || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Nástavby</span>
+                            <div className="text-white flex flex-col">
+                                {project.bodies && Array.isArray(project.bodies) && project.bodies.length > 0 ? (
+                                    project.bodies.map((b: any, i: number) => (
+                                        <span key={i}>{b.type} ({(b.width / 1000).toFixed(1)}m)</span>
+                                    ))
+                                ) : '-'}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -192,9 +229,18 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                                             </div>
                                         </td>
                                         <td className="px-6 py-3 text-right">
-                                            <button className="text-gray-500 hover:text-white p-1">
-                                                <MoreHorizontal className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex items-center justify-end space-x-2">
+                                                <Link
+                                                    href={`/dashboard/projekty/${id}/zakazky/${job.id}/upravit`}
+                                                    className="text-gray-500 hover:text-white p-1 hover:bg-white/10 rounded-lg transition-colors"
+                                                    title="Upravit zakázku"
+                                                >
+                                                    <PenTool className="w-4 h-4" />
+                                                </Link>
+                                                <button className="text-gray-500 hover:text-white p-1">
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
