@@ -11,11 +11,11 @@ export default async function TasksPage() {
 
   const stats = {
     total: tasks.length,
-    todo: tasks.filter(t => t.status === "TODO").length,
-    inProgress: tasks.filter(t => t.status === "IN_PROGRESS").length,
-    completed: tasks.filter(t => t.status === "COMPLETED").length,
+    todo: tasks.filter((t: any) => t.status === "TODO").length,
+    inProgress: tasks.filter((t: any) => t.status === "IN_PROGRESS").length,
+    completed: tasks.filter((t: any) => t.status === "COMPLETED").length,
     averageProgress: tasks.length > 0 
-      ? Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
+      ? Math.round(tasks.reduce((sum: number, task: any) => sum + task.progress, 0) / tasks.length)
       : 0,
   };
 

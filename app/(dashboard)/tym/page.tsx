@@ -30,9 +30,9 @@ export default async function TeamPage() {
 
   const stats = {
     total: teamMembers.length,
-    admins: teamMembers.filter(m => m.role === "ADMIN").length,
-    managers: teamMembers.filter(m => m.role === "MANAGER").length,
-    members: teamMembers.filter(m => m.role === "MEMBER").length,
+    admins: teamMembers.filter((m: any) => m.role === "ADMIN").length,
+    managers: teamMembers.filter((m: any) => m.role === "MANAGER").length,
+    members: teamMembers.filter((m: any) => m.role === "MEMBER").length,
   };
 
   return (
@@ -93,7 +93,7 @@ export default async function TeamPage() {
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Seznam uživatelů</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teamMembers.map((member) => (
+          {teamMembers.map((member: any) => (
             <Card key={member.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">

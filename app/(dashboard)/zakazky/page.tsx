@@ -11,10 +11,10 @@ export default async function ContractsPage() {
 
   const stats = {
     total: contracts.length,
-    planning: contracts.filter(c => c.status === "PLANNING").length,
-    inProgress: contracts.filter(c => c.status === "IN_PROGRESS").length,
-    completed: contracts.filter(c => c.status === "COMPLETED").length,
-    totalTasks: contracts.reduce((sum, contract) => sum + contract.tasks.length, 0),
+    planning: contracts.filter((c: any) => c.status === "PLANNING").length,
+    inProgress: contracts.filter((c: any) => c.status === "IN_PROGRESS").length,
+    completed: contracts.filter((c: any) => c.status === "COMPLETED").length,
+    totalTasks: contracts.reduce((sum: number, contract: any) => sum + (contract.tasks?.length || 0), 0),
   };
 
   return (

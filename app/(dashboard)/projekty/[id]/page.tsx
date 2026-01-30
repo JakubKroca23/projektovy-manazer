@@ -171,7 +171,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {project.members.map((member) => (
+                {project.members.map((member: any) => (
                   <div key={member.id} className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-xs font-medium text-blue-600">

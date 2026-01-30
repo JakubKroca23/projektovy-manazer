@@ -63,7 +63,7 @@ export default async function ProjectsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {projects.filter(p => p.status === "IN_PROGRESS").length}
+              {projects.filter((p: any) => p.status === "IN_PROGRESS").length}
             </div>
           </CardContent>
         </Card>
@@ -73,7 +73,7 @@ export default async function ProjectsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {projects.filter(p => p.status === "COMPLETED").length}
+              {projects.filter((p: any) => p.status === "COMPLETED").length}
             </div>
           </CardContent>
         </Card>
@@ -83,7 +83,7 @@ export default async function ProjectsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {projects.reduce((sum, p) => sum + p.members.length, 0)}
+              {projects.reduce((sum: number, p: any) => sum + (p.members?.length || 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -116,7 +116,7 @@ export default async function ProjectsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {projects.map((project) => (
+              {projects.map((project: any) => (
                 <tr key={project.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
