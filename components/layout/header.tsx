@@ -1,101 +1,52 @@
-"use client";
+'use client'
 
-import { useSession } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { User, LogOut, Settings } from "lucide-react";
-import { signOut } from "next-auth/react";
-import Link from "next/link";
+import { Bell, Search, LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
-export function Header() {
-  const { data: session } = useSession();
-  const user = session?.user;
-  const handleSignOut = () => {
-    signOut({ callbackUrl: "/prihlaseni" });
-  };
+export default function Header({ user }: { user: any }) {
+    const router = useRouter()
+    const supabase = createClient()
 
-  if (!session) {
+    const handleLogout = async () => {
+        await supabase.auth.signOut()
+        router.push('/login')
+        router.refresh()
+    }
+
     return (
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Projektový Manažer
-              </h2>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Link href="/prihlaseni">
-                <Button variant="outline">
-                  Přihlásit se
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-    );
-  }
+        <header className="border-b border-white/10 backdrop-blur-xl bg-white/5 sticky top-0 z-20">
+            <div className="flex items-center justify-between px-6 py-4">
+                {/* Search */}
+                <div className="flex-1 max-w-2xl">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Hledat projekty, úkoly..."
+                            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        />
+                    </div>
+                </div>
 
-  return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Vítejte zpět{user?.name ? `, ${user.name}` : ""}
-            </h2>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.image || ""} alt={user?.name || ""} />
-                    <AvatarFallback>
-                      {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user?.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user?.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profil</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Nastavení</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Odhlásit se</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
+                {/* Actions */}
+                <div className="flex items-center space-x-4 ml-6">
+                    {/* Notifications */}
+                    <button className="p-2 rounded-lg hover:bg-white/10 transition-colors relative">
+                        <Bell className="w-5 h-5 text-gray-300" />
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                    </button>
+
+                    {/* Logout */}
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span className="hidden sm:inline text-sm">Odhlásit</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+    )
 }

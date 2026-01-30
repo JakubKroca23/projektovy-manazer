@@ -1,175 +1,114 @@
-import { getProjects } from "@/lib/actions/projects";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Plus, FolderKanban, Users, FileText, Eye, Edit, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { createClient } from '@/lib/supabase/server'
+import { Plus, FolderKanban, Users, Calendar } from 'lucide-react'
+import Link from 'next/link'
 
-export default async function ProjectsPage() {
-  const projects = await getProjects();
+export default async function ProjektyPage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PLANNING": return "bg-blue-100 text-blue-800";
-      case "TODO": return "bg-gray-100 text-gray-800";
-      case "IN_PROGRESS": return "bg-yellow-100 text-yellow-800";
-      case "REVIEW": return "bg-purple-100 text-purple-800";
-      case "COMPLETED": return "bg-green-100 text-green-800";
-      case "CANCELLED": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+    // Get all projects where user is creator or member
+    const { data: projects } = await supabase
+        .from('projects')
+        .select(`
+      *,
+      profiles!created_by(full_name),
+      project_members(count),
+      tasks(count)
+    `)
+        .or(`created_by.eq.${user?.id},id.in.(select project_id from project_members where user_id = ${user?.id})`)
+        .order('created_at', { ascending: false })
+
+    const statusColors = {
+        planning: 'bg-blue-500/20 text-blue-300 border-blue-500/50',
+        active: 'bg-green-500/20 text-green-300 border-green-500/50',
+        completed: 'bg-purple-500/20 text-purple-300 border-purple-500/50',
+        archived: 'bg-gray-500/20 text-gray-300 border-gray-500/50',
     }
-  };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "PLANNING": return "Plánování";
-      case "TODO": return "K řešení";
-      case "IN_PROGRESS": return "V průběhu";
-      case "REVIEW": return "K revizi";
-      case "COMPLETED": return "Dokončeno";
-      case "CANCELLED": return "Zrušeno";
-      default: return status;
+    const statusLabels = {
+        planning: 'Plánování',
+        active: 'Aktivní',
+        completed: 'Dokončeno',
+        archived: 'Archivováno',
     }
-  };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Projekty</h1>
-          <p className="text-gray-600 mt-1">Správa všech vašich projektů a zakázek</p>
+    return (
+        <div className="space-y-8">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">Projekty</h1>
+                    <p className="text-gray-400">Spravujte všechny své projekty na jednom místě</p>
+                </div>
+                <Link
+                    href="/dashboard/projekty/novy"
+                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                >
+                    <Plus className="w-5 h-5" />
+                    <span>Nový projekt</span>
+                </Link>
+            </div>
+
+            {/* Projects grid */}
+            {projects && projects.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {projects.map((project: any) => (
+                        <Link
+                            key={project.id}
+                            href={`/dashboard/projekty/${project.id}`}
+                            className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6 hover:border-purple-500/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 group"
+                        >
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 rounded-lg bg-gradient-to-br from-purple-600/20 to-cyan-600/20 border border-purple-500/30 group-hover:scale-110 transition-transform">
+                                    <FolderKanban className="w-6 h-6 text-purple-400" />
+                                </div>
+                                <span
+                                    className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[project.status as keyof typeof statusColors]
+                                        }`}
+                                >
+                                    {statusLabels[project.status as keyof typeof statusLabels]}
+                                </span>
+                            </div>
+
+                            {/* Content */}
+                            <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-purple-400 transition-colors">
+                                {project.name}
+                            </h3>
+                            <p className="text-gray-400 text-sm line-clamp-2 mb-4">
+                                {project.description || 'Bez popisu'}
+                            </p>
+
+                            {/* Footer */}
+                            <div className="flex items-center justify-between text-sm text-gray-500">
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center">
+                                        <Users className="w-4 h-4 mr-1" />
+                                        <span>{project.project_members?.[0]?.count || 0}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <Calendar className="w-4 h-4 mr-1" />
+                                        <span>{project.tasks?.[0]?.count || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            ) : (
+                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-12 text-center">
+                    <FolderKanban className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">Zatím žádné projekty</h3>
+                    <p className="text-gray-400 mb-6">Začněte vytvořením svého prvního projektu</p>
+                    <Link
+                        href="/dashboard/projekty/novy"
+                        className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                        <Plus className="w-5 h-5" />
+                        <span>Vytvořit projekt</span>
+                    </Link>
+                </div>
+            )}
         </div>
-        <Link href="/dashboard/projekty/vytvorit">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nový projekt
-          </Button>
-        </Link>
-      </div>
-
-      {/* Filtry a statistiky */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Celkem projektů</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{projects.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Aktivní</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {projects.filter(p => p.status === "IN_PROGRESS").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Dokončené</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {projects.filter(p => p.status === "COMPLETED").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Členové</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {projects.reduce((sum, p) => sum + p.members.length, 0)}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Seznam projektů */}
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Projekt
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stav
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Zakázky
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Členové
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vytvořeno
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Akce
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {projects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {project.name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {project.description?.substring(0, 60)}
-                        {project.description && project.description.length > 60 && "..."}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge className={getStatusColor(project.status)}>
-                      {getStatusText(project.status)}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <FileText className="h-4 w-4 mr-1" />
-                      {project._count.contracts}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 mr-1" />
-                      {project.members.length}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(project.createdAt).toLocaleDateString("cs-CZ")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <Link href={`/dashboard/projekty/${project.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+    )
 }

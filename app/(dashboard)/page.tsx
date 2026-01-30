@@ -1,145 +1,167 @@
-import { getProjects } from "@/lib/actions/projects";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Plus, FolderKanban, Users, FileText } from "lucide-react";
-import Link from "next/link";
+import { createClient } from '@/lib/supabase/server'
+import { FolderKanban, CheckSquare, Users, TrendingUp, Plus } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
-  const projects = await getProjects();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  const stats = {
-    totalProjects: projects.length,
-    activeProjects: projects.filter(p => p.status === "IN_PROGRESS").length,
-    totalContracts: projects.reduce((sum, p) => sum + p._count.contracts, 0),
-    totalMembers: projects.reduce((sum, p) => sum + p._count.members, 0),
-  };
+    // Get projects count
+    const { count: projectsCount } = await supabase
+        .from('projects')
+        .select('*', { count: 'exact', head: true })
+        .or(`created_by.eq.${user?.id},id.in.(select project_id from project_members where user_id = ${user?.id})`)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PLANNING": return "bg-blue-100 text-blue-800";
-      case "TODO": return "bg-gray-100 text-gray-800";
-      case "IN_PROGRESS": return "bg-yellow-100 text-yellow-800";
-      case "REVIEW": return "bg-purple-100 text-purple-800";
-      case "COMPLETED": return "bg-green-100 text-green-800";
-      case "CANCELLED": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+    // Get tasks count
+    const { count: tasksCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('assigned_to', user?.id)
+
+    // Get active tasks count
+    const { count: activeTasksCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('assigned_to', user?.id)
+        .eq('status', 'in_progress')
+
+    // Get recent projects
+    const { data: recentProjects } = await supabase
+        .from('projects')
+        .select('*, profiles!created_by(full_name)')
+        .or(`created_by.eq.${user?.id},id.in.(select project_id from project_members where user_id = ${user?.id})`)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+    const stats = [
+        { name: 'Celkem projektů', value: projectsCount || 0, icon: FolderKanban, color: 'from-purple-600 to-purple-400' },
+        { name: 'Moje úkoly', value: tasksCount || 0, icon: CheckSquare, color: 'from-cyan-600 to-cyan-400' },
+        { name: 'Aktivní úkoly', value: activeTasksCount || 0, icon: TrendingUp, color: 'from-pink-600 to-pink-400' },
+        { name: 'Členové týmu', value: 12, icon: Users, color: 'from-orange-600 to-orange-400' },
+    ]
+
+    const statusColors = {
+        planning: 'bg-blue-500/20 text-blue-300 border-blue-500/50',
+        active: 'bg-green-500/20 text-green-300 border-green-500/50',
+        completed: 'bg-purple-500/20 text-purple-300 border-purple-500/50',
+        archived: 'bg-gray-500/20 text-gray-300 border-gray-500/50',
     }
-  };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "PLANNING": return "Plánování";
-      case "TODO": return "K řešení";
-      case "IN_PROGRESS": return "V průběhu";
-      case "REVIEW": return "K revizi";
-      case "COMPLETED": return "Dokončeno";
-      case "CANCELLED": return "Zrušeno";
-      default: return status;
+    const statusLabels = {
+        planning: 'Plánování',
+        active: 'Aktivní',
+        completed: 'Dokončeno',
+        archived: 'Archivováno',
     }
-  };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Přehled</h1>
-        <Link href="/dashboard/projekty/vytvorit">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nový projekt
-          </Button>
-        </Link>
-      </div>
-
-      {/* Statistika */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Celkem projektů</CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProjects}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.activeProjects} aktivních
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Zakázky</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalContracts}</div>
-            <p className="text-xs text-muted-foreground">
-              Všechny zakázky
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Členové</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalMembers}</div>
-            <p className="text-xs text-muted-foreground">
-              V projektech
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktivní</CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeProjects}</div>
-            <p className="text-xs text-muted-foreground">
-              Probíhající
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Nedávné projekty */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Nedávné projekty</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.slice(0, 6).map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{project.name}</CardTitle>
-                  <Badge className={getStatusColor(project.status)}>
-                    {getStatusText(project.status)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                  {project.description || "Bez popisu"}
+    return (
+        <div className="space-y-8">
+            {/* Welcome */}
+            <div>
+                <h1 className="text-4xl font-bold text-white mb-2">
+                    Vítejte zpět! 👋
+                </h1>
+                <p className="text-gray-400">
+                    Tady je přehled vašich projektů a úkolů
                 </p>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>{project._count.contracts} zakázek</span>
-                  <span>{project.members.length} členů</span>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {stats.map((stat) => (
+                    <div
+                        key={stat.name}
+                        className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6 hover:border-white/20 transition-all duration-200 group"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-sm mb-1">{stat.name}</p>
+                                <p className="text-3xl font-bold text-white">{stat.value}</p>
+                            </div>
+                            <div className={`p-3 rounded-lg bg-gradient-to-br ${stat.color} group-hover:scale-110 transition-transform`}>
+                                <stat.icon className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-4">
+                <Link
+                    href="/dashboard/projekty/novy"
+                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                >
+                    <Plus className="w-5 h-5" />
+                    <span>Nový projekt</span>
+                </Link>
+                <Link
+                    href="/dashboard/ukoly"
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-medium rounded-lg transition-all duration-200"
+                >
+                    Zobrazit úkoly
+                </Link>
+            </div>
+
+            {/* Recent Projects */}
+            <div>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-white">Nedávné projekty</h2>
+                    <Link
+                        href="/dashboard/projekty"
+                        className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
+                    >
+                        Zobrazit vše →
+                    </Link>
                 </div>
-                <div className="mt-4">
-                  <Link href={`/dashboard/projekty/${project.id}`}>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Zobrazit detail
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                {recentProjects && recentProjects.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {recentProjects.map((project) => (
+                            <Link
+                                key={project.id}
+                                href={`/dashboard/projekty/${project.id}`}
+                                className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6 hover:border-purple-500/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 group"
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="p-2 rounded-lg bg-gradient-to-br from-purple-600/20 to-cyan-600/20 border border-purple-500/30 group-hover:scale-110 transition-transform">
+                                        <FolderKanban className="w-6 h-6 text-purple-400" />
+                                    </div>
+                                    <span
+                                        className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[project.status as keyof typeof statusColors]
+                                            }`}
+                                    >
+                                        {statusLabels[project.status as keyof typeof statusLabels]}
+                                    </span>
+                                </div>
+                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-purple-400 transition-colors">
+                                    {project.name}
+                                </h3>
+                                <p className="text-gray-400 text-sm line-clamp-2 mb-4">
+                                    {project.description || 'Bez popisu'}
+                                </p>
+                                <div className="flex items-center text-xs text-gray-500">
+                                    <Users className="w-4 h-4 mr-1" />
+                                    <span>Vytvořil {project.profiles?.full_name || 'Neznámý'}</span>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-12 text-center">
+                        <FolderKanban className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-white mb-2">Zatím žádné projekty</h3>
+                        <p className="text-gray-400 mb-6">Začněte vytvořením svého prvního projektu</p>
+                        <Link
+                            href="/dashboard/projekty/novy"
+                            className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span>Vytvořit projekt</span>
+                        </Link>
+                    </div>
+                )}
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    )
 }

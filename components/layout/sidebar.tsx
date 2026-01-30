@@ -1,63 +1,66 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  FileText, 
-  CheckSquare,
-  Users,
-  Settings,
-  Calendar
-} from "lucide-react";
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { LayoutDashboard, FolderKanban, CheckSquare, Users, BarChart3 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const navigation = [
-  { name: "Přehled", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Projekty", href: "/dashboard/projekty", icon: FolderKanban },
-  { name: "Zakázky", href: "/dashboard/zakazky", icon: FileText },
-  { name: "Úkoly", href: "/dashboard/ukoly", icon: CheckSquare },
-  { name: "Gantt", href: "/dashboard/gantt", icon: Calendar },
-  { name: "Tým", href: "/dashboard/tym", icon: Users },
-  { name: "Nastavení", href: "/dashboard/nastaveni", icon: Settings },
-];
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Projekty', href: '/dashboard/projekty', icon: FolderKanban },
+    { name: 'Úkoly', href: '/dashboard/ukoly', icon: CheckSquare },
+    { name: 'Kanban', href: '/dashboard/kanban', icon: BarChart3 },
+    { name: 'Tým', href: '/dashboard/tym', icon: Users },
+]
 
-export function Sidebar() {
-  const pathname = usePathname();
+export default function Sidebar({ user }: { user: any }) {
+    const pathname = usePathname()
 
-  return (
-    <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
-      <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-5 pb-4 overflow-y-auto">
-        <div className="flex items-center flex-shrink-0 px-4">
-          <h1 className="text-xl font-bold text-gray-900">Projektový Manažer</h1>
-        </div>
-        <nav className="mt-8 flex-1 px-2 space-y-1">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
-                  isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "mr-3 h-5 w-5 flex-shrink-0",
-                    isActive ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
-                  )}
-                />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-    </div>
-  );
+    return (
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 border-r border-white/10 backdrop-blur-xl bg-white/5">
+            {/* Logo */}
+            <div className="p-6 border-b border-white/10">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                    ProjectHub
+                </h1>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-4 space-y-1">
+                {navigation.map((item) => {
+                    const isActive = pathname === item.href
+                    return (
+                        <Link
+                            key={item.name}
+                            href={item.href}
+                            className={cn(
+                                'flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
+                                isActive
+                                    ? 'bg-gradient-to-r from-purple-600/20 to-cyan-600/20 text-white border border-purple-500/50'
+                                    : 'text-gray-300 hover:text-white hover:bg-white/5'
+                            )}
+                        >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.name}</span>
+                        </Link>
+                    )
+                })}
+            </nav>
+
+            {/* User info */}
+            <div className="p-4 border-t border-white/10">
+                <div className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white/5">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 flex items-center justify-center text-white font-semibold">
+                        {user?.full_name?.charAt(0) || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                            {user?.full_name || 'User'}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">{user?.role || 'member'}</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    )
 }
