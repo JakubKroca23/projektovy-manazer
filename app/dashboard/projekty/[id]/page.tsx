@@ -162,7 +162,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                             <div key={task.id} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/5 hover:border-white/10 transition-all">
                                 <div className="flex items-center space-x-3">
                                     <div className={`w-3 h-3 rounded-full ${task.status === 'done' ? 'bg-green-500' :
-                                            task.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
+                                        task.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
                                         }`} />
                                     <div>
                                         <h4 className="text-sm font-medium text-white">{task.title}</h4>
@@ -184,13 +184,16 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 <div className="space-y-6">
                     <h2 className="text-xl font-bold text-white">Rychlé akce</h2>
                     <div className="space-y-3">
-                        <button className="w-full py-3 px-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-200 rounded-lg flex items-center justify-center space-x-2 transition-all">
+                        <Link
+                            href={`/dashboard/projekty/${project.id}/novy-ukol`}
+                            className="w-full py-3 px-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-200 rounded-lg flex items-center justify-center space-x-2 transition-all"
+                        >
                             <Plus className="w-4 h-4" />
                             <span>Přidat úkol</span>
-                        </button>
-                        <button className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-lg flex items-center justify-center space-x-2 transition-all">
+                        </Link>
+                        <button className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-lg flex items-center justify-center space-x-2 transition-all opacity-50 cursor-not-allowed">
                             <Users className="w-4 h-4" />
-                            <span>Spravovat tým</span>
+                            <span>Spravovat tým (Coming soon)</span>
                         </button>
                     </div>
                 </div>
