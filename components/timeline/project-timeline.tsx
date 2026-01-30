@@ -27,6 +27,7 @@ interface Job {
     deadline: string | null
     expected_completion_date: string | null
     created_at: string
+    start_date?: string | null
 }
 
 interface Project {
@@ -45,8 +46,16 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     const [projects, setProjects] = useState(initialProjects)
     const [viewMode, setViewMode] = useState<ViewMode>('year')
     const [currentDate, setCurrentDate] = useState(new Date())
-    const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
-    const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
+
+    // Default expanded all
+    const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
+        return new Set(initialProjects.map(p => p.id))
+    })
+    const [expandedJobs, setExpandedJobs] = useState<Set<string>>(() => {
+        const jobs = new Set<string>()
+        initialProjects.forEach(p => p.jobs?.forEach(j => jobs.add(j.id)))
+        return jobs
+    })
 
     // Drag & Drop State
     const [isDragging, setIsDragging] = useState(false)
@@ -128,8 +137,11 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
             for (const p of projects) {
                 const job = p.jobs?.find(j => j.id === itemId)
                 if (job) {
-                    item = { start: job.created_at, end: job.deadline, created: job.created_at }
-                    if (job.expected_completion_date) item.end = job.expected_completion_date
+                    item = {
+                        start: job.start_date || job.created_at,
+                        end: job.expected_completion_date || job.deadline, // Use expected completion as end visually
+                        created: job.created_at
+                    }
                     break
                 }
             }
@@ -166,14 +178,15 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
         const pixelsPerDay = containerWidth / timelineData.totalDays
         const deltaDays = Math.round(deltaPixels / pixelsPerDay)
 
-        if (deltaDays === 0) return
+        // Ensure real-time update even for small movements if needed, but deltaDays is safer
+        if (deltaDays === 0 && dragType === 'move') return
 
         let newStart = new Date(dragInitialDates.start)
         let newEnd = new Date(dragInitialDates.end)
 
         if (dragType === 'move') {
             newStart = addDays(newStart, deltaDays)
-            newEnd = addDays(newEnd, deltaDays)
+            newEnd = addDays(newEnd, deltaDays) // Move both start and end
         } else if (dragType === 'resize-start') {
             newStart = addDays(newStart, deltaDays)
             if (differenceInDays(newEnd, newStart) < 1) newStart = addDays(newEnd, -1)
@@ -195,7 +208,12 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                     ...p,
                     jobs: p.jobs?.map(j => {
                         if (j.id === dragItemId) {
-                            return { ...j, expected_completion_date: newEndIso }
+                            // Update start_date and expected_completion
+                            return {
+                                ...j,
+                                start_date: newStartIso,
+                                expected_completion_date: newEndIso
+                            }
                         }
                         return j
                     })
@@ -220,10 +238,14 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     const handleMouseUp = async () => {
         if (!isDragging || !dragItemId || !dragItemType) return
 
+        // Persist to DB
         if (dragItemType === 'project') {
             const project = projects.find(p => p.id === dragItemId)
             if (project) {
-                await supabase.from('projects').update({ expected_start_date: project.expected_start_date, deadline: project.deadline }).eq('id', dragItemId)
+                await supabase.from('projects').update({
+                    expected_start_date: project.expected_start_date,
+                    deadline: project.deadline
+                }).eq('id', dragItemId)
                 router.refresh()
             }
         } else if (dragItemType === 'job') {
@@ -233,7 +255,11 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                 if (jobToUpdate) break
             }
             if (jobToUpdate) {
-                await supabase.from('jobs').update({ expected_completion_date: jobToUpdate.expected_completion_date, deadline: jobToUpdate.deadline }).eq('id', dragItemId)
+                // Update start_date and expected_completion_date
+                await supabase.from('jobs').update({
+                    start_date: jobToUpdate.start_date,
+                    expected_completion_date: jobToUpdate.expected_completion_date,
+                }).eq('id', dragItemId)
                 router.refresh()
             }
         } else {
@@ -243,7 +269,10 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                 if (taskToUpdate) break
             }
             if (taskToUpdate) {
-                await supabase.from('tasks').update({ start_date: taskToUpdate.start_date, due_date: taskToUpdate.due_date }).eq('id', dragItemId)
+                await supabase.from('tasks').update({
+                    start_date: taskToUpdate.start_date,
+                    due_date: taskToUpdate.due_date
+                }).eq('id', dragItemId)
                 router.refresh()
             }
         }
@@ -300,6 +329,23 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                     <button onClick={() => navigation('next')} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
                         <ChevronRight className="w-5 h-5" />
                     </button>
+                    <button
+                        onClick={() => {
+                            // Toggle all logic
+                            if (expandedProjects.size > 0) {
+                                setExpandedProjects(new Set())
+                                setExpandedJobs(new Set())
+                            } else {
+                                setExpandedProjects(new Set(projects.map(p => p.id)))
+                                const jobs = new Set<string>()
+                                projects.forEach(p => p.jobs?.forEach(j => jobs.add(j.id)))
+                                setExpandedJobs(jobs)
+                            }
+                        }}
+                        className="text-xs text-gray-400 hover:text-white ml-4 border border-white/10 px-2 py-1 rounded"
+                    >
+                        {expandedProjects.size > 0 ? 'Sbalit vše' : 'Rozbalit vše'}
+                    </button>
                 </div>
 
                 <div className="flex bg-black/20 rounded-lg p-1">
@@ -333,6 +379,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                         const style = getPosition(project.expected_start_date, project.deadline, project.created_at)
                         const isExpanded = expandedProjects.has(project.id)
 
+                        // Tasks directly under project (no job)
                         const projectTasks = project.tasks?.filter(t => !t.job_id) || []
                         const projectJobs = project.jobs || []
 
@@ -408,7 +455,8 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                                         {projectJobs.map(job => {
                                             const jobExpanded = expandedJobs.has(job.id)
                                             const jobTasks = project.tasks?.filter(t => t.job_id === job.id) || []
-                                            const jobStyle = getPosition(job.created_at, job.expected_completion_date || job.deadline, job.created_at)
+                                            // Utilize job.start_date if available, otherwise created_at
+                                            const jobStyle = getPosition(job.start_date || job.created_at, job.expected_completion_date || job.deadline, job.created_at)
 
                                             return (
                                                 <div key={job.id}>

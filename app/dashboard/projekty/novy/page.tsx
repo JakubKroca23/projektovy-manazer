@@ -6,12 +6,15 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
+import AccessoriesForm, { AccessoryItem } from '@/components/projects/accessories-form'
+
 export default function NovyProjektPage() {
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [status, setStatus] = useState('planning')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [accessories, setAccessories] = useState<AccessoryItem[]>([])
     const router = useRouter()
     const supabase = createClient()
 
@@ -72,7 +75,7 @@ export default function NovyProjektPage() {
                 p_name: name,
                 p_description: description,
                 p_status: status,
-                p_extra_fields: extraFields
+                p_extra_fields: { ...extraFields, accessories: accessories } // Pass object directly
             })
 
         if (projectError) {
@@ -185,6 +188,7 @@ export default function NovyProjektPage() {
                     {/* Specifikace vozidla */}
                     <div className="space-y-4">
                         <h3 className="text-xl font-semibold text-white border-b border-white/10 pb-2">Specifikace vozidla</h3>
+                        {/* ... existing vehicle fields ... */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-200 mb-2">Konfigurace podvozku</label>
@@ -224,6 +228,14 @@ export default function NovyProjektPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-200 mb-2">Čerpadlo</label>
                                 <input type="text" name="pump_type" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Typ hydraulického čerpadla" />
+                            </div>
+                        </div>
+
+                        {/* Accessories Table */}
+                        <div className="pt-4">
+                            <label className="block text-base font-medium text-white mb-4">Podrobný popis příslušenství (dle specifikace)</label>
+                            <div className="bg-black/30 rounded-lg p-1 overflow-hidden border border-white/10">
+                                <AccessoriesForm onChange={setAccessories} />
                             </div>
                         </div>
                     </div>

@@ -30,6 +30,7 @@ interface Project {
         deadline: string | null
         expected_completion_date: string | null
         created_at: string
+        start_date?: string | null
     }[]
 }
 

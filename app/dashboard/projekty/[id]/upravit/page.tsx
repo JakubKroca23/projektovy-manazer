@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import AccessoriesForm, { AccessoryItem } from '@/components/projects/accessories-form'
 
 export default function UpravitProjektPage() {
     const router = useRouter()
@@ -41,7 +42,8 @@ export default function UpravitProjektPage() {
         body_type: '',
         crane_type: '',
         outriggers_type: '',
-        pump_type: ''
+        pump_type: '',
+        accessories: [] as AccessoryItem[]
     })
 
     useEffect(() => {
@@ -87,7 +89,8 @@ export default function UpravitProjektPage() {
                     body_type: data.body_type || '',
                     crane_type: data.crane_type || '',
                     outriggers_type: data.outriggers_type || '',
-                    pump_type: data.pump_type || ''
+                    pump_type: data.pump_type || '',
+                    accessories: data.accessories ? (data.accessories as unknown as AccessoryItem[]) : []
                 })
             }
             setLoading(false)
@@ -133,7 +136,8 @@ export default function UpravitProjektPage() {
                 body_type: formData.body_type || null,
                 crane_type: formData.crane_type || null,
                 outriggers_type: formData.outriggers_type || null,
-                pump_type: formData.pump_type || null
+                pump_type: formData.pump_type || null,
+                accessories: formData.accessories // JSONB
             })
             .eq('id', id)
 
@@ -238,6 +242,15 @@ export default function UpravitProjektPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-200 mb-2">Čerpadlo</label>
                             <input type="text" name="pump_type" value={formData.pump_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        </div>
+                        <div className="md:col-span-3 pt-4">
+                            <label className="block text-base font-medium text-white mb-4">Podrobný popis příslušenství (dle specifikace)</label>
+                            <div className="bg-black/30 rounded-lg p-1 overflow-hidden border border-white/10">
+                                <AccessoriesForm
+                                    initialData={formData.accessories}
+                                    onChange={(newAcc) => setFormData(prev => ({ ...prev, accessories: newAcc }))}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

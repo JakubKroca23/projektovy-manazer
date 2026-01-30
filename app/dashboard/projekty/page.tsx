@@ -33,7 +33,8 @@ export default async function ProjektyPage() {
                 status,
                 deadline,
                 expected_completion_date,
-                created_at
+                created_at,
+                start_date
             )
         `)
         .order('created_at', { ascending: false })
