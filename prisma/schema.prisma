@@ -1,0 +1,146 @@
+// Projektový manažerský systém - Databázové schéma
+// Hierarchie: Uživatelé → Projekty → Zakázky → Úkoly
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Uživatelé systému s rollemi
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Int      @default(2) // 0=ADMIN, 1=MANAGER, 2=MEMBER
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Vztahy
+  projectMemberships ProjectMember[]
+  ownedProjects     Project[]         @relation("ProjectOwner")
+  taskComments      TaskComment[]
+  uploadedFiles      FileUpload[]
+
+  @@map("users")
+}
+
+// Projekty - nejvyšší úroveň hierarchie
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      Int      @default(0) // 0=PLANNING, 1=TODO, 2=IN_PROGRESS, 3=REVIEW, 4=COMPLETED, 5=CANCELLED
+  startDate   DateTime?
+  endDate     DateTime?
+  createdById String
+  createdBy   User     @relation("ProjectOwner", fields: [createdById], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Vztahy
+  members   ProjectMember[]
+  contracts Contract[]
+  files     FileUpload[]
+
+  @@map("projects")
+}
+
+// Zakázky - sub-projekty nebo smlouvy v rámci projektů
+model Contract {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      Int      @default(0) // 0=PLANNING, 1=TODO, 2=IN_PROGRESS, 3=REVIEW, 4=COMPLETED, 5=CANCELLED
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  startDate   DateTime?
+  endDate     DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Vztahy
+  tasks Task[]
+
+  @@map("contracts")
+}
+
+// Úkoly - nejnižší úroveň s detailním plánováním
+model Task {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  status       Int      @default(1) // 0=PLANNING, 1=TODO, 2=IN_PROGRESS, 3=REVIEW, 4=COMPLETED, 5=CANCELLED
+  progress     Int      @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  contractId   String
+  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Vztahy - pro MVP jednodušší bez komplexních závislostí
+  comments TaskComment[]
+
+  @@map("tasks")
+}
+
+// Členství v projektech s rollemi
+model ProjectMember {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      Int        @default(2) // 0=OWNER, 1=MANAGER, 2=MEMBER, 3=VIEWER
+  joinedAt  DateTime   @default(now())
+
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+// Komentáře k úkolům pro collaboration
+model TaskComment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("task_comments")
+}
+
+// Uploadované soubory - pro MVP jednodušší verze
+model FileUpload {
+  id           String @id @default(cuid())
+  filename     String
+  originalName String
+  size         Int
+  type         String
+  path         String
+
+  // Pro MVP jen projekt-level soubory
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@map("file_uploads")
+}
+
+// Status konstanty (pro SQLite používáme Int místo enums)
+// Status: 0=PLANNING, 1=TODO, 2=IN_PROGRESS, 3=REVIEW, 4=COMPLETED, 5=CANCELLED
+// UserRole: 0=ADMIN, 1=MANAGER, 2=MEMBER  
+// ProjectRole: 0=OWNER, 1=MANAGER, 2=MEMBER, 3=VIEWER
