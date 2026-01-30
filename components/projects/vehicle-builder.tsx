@@ -41,7 +41,7 @@ export default function VehicleBuilder({
     readOnly = false
 }: {
     initialData: any,
-    onChange: (data: any) => void,
+    onChange?: (data: any) => void,
     readOnly?: boolean
 }) {
     // --- STATE ---
@@ -113,7 +113,7 @@ export default function VehicleBuilder({
     useEffect(() => {
         // Convert back to structure compatible with DB (if needed) or save as is
         // We will save the NEW precise structure.
-        onChange(data)
+        if (onChange) onChange(data)
     }, [data, onChange])
 
     // Sync Config Changes
@@ -309,7 +309,7 @@ export default function VehicleBuilder({
                         width="100%"
                         height="100%"
                         viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-                        className="cursor-crosshair"
+                        className={`${readOnly ? 'pointer-events-none' : 'cursor-crosshair'}`}
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}

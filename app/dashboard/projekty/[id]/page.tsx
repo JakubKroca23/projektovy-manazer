@@ -146,7 +146,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                             chassisLength: project.axle_positions?.chassisLength || 8000
                         }}
                         readOnly={true}
-                        onChange={() => { }}
                     />
                 </div>
 
