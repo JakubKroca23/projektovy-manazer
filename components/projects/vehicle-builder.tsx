@@ -1,93 +1,151 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, MoveHorizontal, Settings2, ArrowRightFromLine, ArrowUpToLine, Shield } from 'lucide-react'
+import { Plus, Trash2, Move, Ruler, Scale, Truck, Layers, Download, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react'
 
+// --- TYPES ---
 export interface BodyItem {
     id: string
     type: string
     description: string
-    x: number // Relative position (0-1000)
-    width: number // Relative width
-    height: number // Relative height
-    extensions?: number // Pro hydraulickou ruku (1-8)
+    x: number // Vzdálenost od přední nápravy (nebo začátku rámu?) -> Zde od "Zero Point" (přední náprava 1)
+    width: number // Délka
+    height: number // Výška
+    weight: number // Hmotnost v kg
+    extensions?: number // Pro hydraulickou ruku
 }
 
 export interface VehicleData {
-    config: string
+    config: string // např. 4x2, 6x4...
     brand: string
     bodies: BodyItem[]
-    axlePositions?: number[] // Relative positions
-    chassisLength?: number // Celková délka rámu
+    axlePositions: number[] // Pozice náprav od Zero Point (0 = 1. náprava)
+    chassisLength: number // Celková délka rámu od Zero Point
+    frontOverhang: number // Převis před 1. nápravou (pro vizuál kabiny)
+    rearOverhang: number // (Vypočteno: chassisLength - lastAxle)
 }
 
-const BODY_TYPES = ['Sklápěč', 'Valník', 'Kontejnerový nosič', 'Cisterna', 'Skříňová', 'Domíchávač', 'Jeřáb', 'Hydraulická ruka', 'Odtahovka']
+const BODY_TYPES = ['Valník', 'Sklápěč', 'Kontejner', 'Skříň', 'Cisterna', 'Hydraulická ruka', 'Jeřáb', 'Mix', 'Odtah']
 
-// Constants for visualization scale
-const VIEW_WIDTH = 900
-const VIEW_HEIGHT = 400
-const CHASSIS_Y = 250
-const GROUND_Y = 290
-const CAB_X = 50
+// --- CONSTANTS ---
+const VIEW_WIDTH = 1000
+const VIEW_HEIGHT = 500
+const ZERO_X = 150 // X coordinate of the first axle (Zero Point)
+const PIXELS_PER_METER = 100 // Scale: 100px = 1m
+const GROUND_Y = 350
+const CHASSIS_Y = 310 // Frame top height (approx 1m from ground visually, adjustable)
 
 export default function VehicleBuilder({
     initialData,
     onChange
 }: {
-    initialData: VehicleData,
-    onChange: (data: VehicleData) => void
+    initialData: any,
+    onChange: (data: any) => void
 }) {
-    // State initialization
+    // --- STATE ---
     const [data, setData] = useState<VehicleData>(() => {
-        const axles = initialData.axlePositions && initialData.axlePositions.length > 0
-            ? initialData.axlePositions
-            : getDefaultAxlePositions(initialData.config)
+        // Initialize from props or defaults
+        const config = initialData.config || '4x2'
+        const defaultAxles = getDefaultAxlePositions(config) // relative to Zero Point 0
+
+        let axles = initialData.axlePositions // expect positions relative to frame start or handled? 
+        // Let's standardize: axlePositions coming in props might be legacy (absolute SVG coords).
+        // We will convert/sanitize to "Relative to First Axle 0" model if needed, but for simplicity let's stick to "Relative to SVG Origin" logic but adapted.
+        // Actually, best for engineering is specific offsets.
+
+        // RE-MAPPING LEGACY DATA to NEW "CAD" MODEL
+        // If incoming data is legacy (absolute coords ~100+), we use them relative to ZeroX.
+        // If new, we keep.
+
+        let normalizedAxles = []
+        if (Array.isArray(axles) && axles.length > 0) {
+            // Heuristic: if first axle > 50, it is absolute svg coord.
+            if (axles[0] > 50) {
+                const offset = axles[0]
+                normalizedAxles = axles.map((a: number) => a - offset) // Normalize to 0
+            } else {
+                normalizedAxles = axles
+            }
+        } else {
+            normalizedAxles = defaultAxles
+        }
+
+        // Fix axle count if config changed outside
+        if (getAxleCount(config) !== normalizedAxles.length) {
+            normalizedAxles = defaultAxles
+        }
+
+        // Chassis Length Logic
+        let cLen = initialData.chassisLength || 7000 // mm
+        // Convert to pixels for internal logic? No, let's work in MM internally for "Profi" feel?
+        // Too complex for React rendering without heavy scale logic.
+        // Let's stick to PIXELS for storage but show MM in UI. 
+        // Actually, let's use MILLIMETERS in State for precision!
+
+        // RESTART: STATE WILL BE IN MILLIMETERS (MM)
+        const mmAxles = normalizedAxles.map((a: number) => a * 10) // assuming previous was ~100px=1m approx -> now mm.
+        // Wait, legacy data was "SVG Coords".
+        // Let's reset to defaults for "Profi" mode to ensure integrity, or try to parse.
+        // To be safe, let's use defaults if it looks weird.
+
+        const defaultMM = getDefaultAxleOffsetsMM(config)
 
         return {
-            ...initialData,
-            axlePositions: axles,
-            chassisLength: initialData.chassisLength || 800 // Default chassis length
+            config: config,
+            brand: initialData.brand || '',
+            bodies: (initialData.bodies || []).map((b: any) => ({
+                ...b,
+                x: b.x * 10 || 0, // Approx conversion if needed
+                width: b.width * 10 || 3000,
+                height: b.height * 10 || 800,
+                weight: b.weight || 0
+            })),
+            axlePositions: defaultMM, // Store offsets from 1st axle in MM (e.g. 0, 3600, 5000)
+            chassisLength: initialData.chassisLength ? (initialData.chassisLength < 2000 ? initialData.chassisLength * 10 : initialData.chassisLength) : 8000, // MM
+            frontOverhang: 1400, // MM
+            rearOverhang: 0 // Calculated
         }
     })
 
-    // Propagate changes
+    // Update parent
     useEffect(() => {
+        // Convert back to structure compatible with DB (if needed) or save as is
+        // We will save the NEW precise structure.
         onChange(data)
     }, [data, onChange])
 
-    // Sync axle count with config
+    // Sync Config Changes
     useEffect(() => {
-        if (!data.axlePositions) return
-
-        const needed = getAxleCount(data.config)
-        if (data.axlePositions.length !== needed) {
-            const defaults = getDefaultAxlePositions(data.config)
-            // Try to keep chassis length reasonable
-            setData(prev => ({ ...prev, axlePositions: defaults }))
+        const count = getAxleCount(data.config)
+        if (data.axlePositions.length !== count) {
+            setData(prev => ({
+                ...prev,
+                axlePositions: getDefaultAxleOffsetsMM(prev.config)
+            }))
         }
     }, [data.config])
 
 
-    const addBody = () => {
+    // --- ACTIONS ---
+    const addBody = (type: string) => {
+        // Find suitable start position (e.g. behind cab)
+        const cabEnd = 800 // approx cab depth
         const lastBody = data.bodies[data.bodies.length - 1]
-        const startX = lastBody ? lastBody.x + lastBody.width + 10 : 250
+        const startX = lastBody ? lastBody.x + lastBody.width + 100 : cabEnd + 200
 
         setData(prev => ({
             ...prev,
             bodies: [...prev.bodies, {
                 id: crypto.randomUUID(),
-                type: 'Valník',
+                type,
                 description: '',
                 x: startX,
-                width: 300,
-                height: 80,
+                width: 3000,
+                height: 800,
+                weight: 500,
                 extensions: 1
             }]
         }))
-    }
-
-    const removeBody = (id: string) => {
-        setData(prev => ({ ...prev, bodies: prev.bodies.filter(b => b.id !== id) }))
     }
 
     const updateBody = (id: string, field: keyof BodyItem, value: any) => {
@@ -97,504 +155,413 @@ export default function VehicleBuilder({
         }))
     }
 
-    // Drag & Drop State
+    const removeBody = (id: string) => {
+        setData(prev => ({ ...prev, bodies: prev.bodies.filter(b => b.id !== id) }))
+    }
+
+    // --- DRAG LOGIC ---
     const svgRef = useRef<SVGSVGElement>(null)
     const [dragging, setDragging] = useState<{
-        type: 'axle' | 'body-move' | 'body-resize-w' | 'body-resize-h' | 'chassis-resize',
+        type: 'axle' | 'body' | 'body-resize' | 'chassis',
         id: string | number,
         startX: number,
-        mouseY?: number,
-        initialVal: number, // X or Width or Length
-        initialYVal?: number // For Height
+        startVal: number
     } | null>(null)
 
-    const handleSvgMouseMove = (e: React.MouseEvent) => {
-        if (!dragging || !svgRef.current || !data.axlePositions) return
+    const mmToPx = (mm: number) => mm / 1000 * PIXELS_PER_METER
+    const pxToMm = (px: number) => px / PIXELS_PER_METER * 1000
 
-        const svgRect = svgRef.current.getBoundingClientRect()
-        const scaleX = VIEW_WIDTH / svgRect.width
-        const scaleY = VIEW_HEIGHT / svgRect.height
-        const deltaX = (e.clientX - dragging.startX) * scaleX
-        const deltaY = dragging.mouseY ? (e.clientY - dragging.mouseY) * scaleY : 0
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!dragging || !svgRef.current) return
+
+        const rect = svgRef.current.getBoundingClientRect()
+        const scale = VIEW_WIDTH / rect.width // SVG Viewbox handling
+        const deltaPx = (e.clientX - dragging.startX) * scale
+        const deltaMm = pxToMm(deltaPx)
 
         if (dragging.type === 'axle') {
-            const index = dragging.id as number
-            // Logic: Move rear bogie together
-            const isRear = index >= (data.config.startsWith('8') ? 2 : 1) // 8xX has 2 front axles logic simplified
+            const idx = dragging.id as number
+            if (idx === 0) return // Lock 1st axle? Or move everything? Let's lock 1st axle as Zero.
 
             const newAxles = [...data.axlePositions]
-            const currentPos = newAxles[index]
-            let newPos = dragging.initialVal + deltaX
+            // Move bogie logic
+            const isRear = idx >= (data.config.startsWith('8') ? 2 : 1)
+            const oldVal = newAxles[idx]
+            let newVal = Math.max(0, dragging.startVal + deltaMm)
 
-            // Constraints
-            newPos = Math.max(100, Math.min(data.chassisLength! - 40, newPos))
-
-            const moveDelta = newPos - currentPos
+            const moveDiff = newVal - oldVal
 
             if (isRear) {
-                // Move all rear axles by same delta
-                const frontCount = data.config.startsWith('8') ? 2 : 1
-                for (let i = frontCount; i < newAxles.length; i++) {
-                    newAxles[i] += moveDelta
+                // Move all subsequent axles
+                for (let i = idx; i < newAxles.length; i++) {
+                    newAxles[i] += moveDiff
                 }
             } else {
-                newAxles[index] = newPos
+                newAxles[idx] = newVal
             }
-
             setData(prev => ({ ...prev, axlePositions: newAxles }))
-        }
-        else if (dragging.type === 'chassis-resize') {
-            const newLen = Math.max((data.axlePositions[data.axlePositions.length - 1] || 0) + 50, dragging.initialVal + deltaX)
-            setData(prev => ({ ...prev, chassisLength: newLen }))
-        }
-        else if (dragging.type === 'body-move') {
+
+        } else if (dragging.type === 'body') {
             const id = dragging.id as string
-            const newPos = dragging.initialVal + deltaX
-            updateBody(id, 'x', newPos)
-        }
-        else if (dragging.type === 'body-resize-w') {
+            const newVal = Math.max(-data.frontOverhang, dragging.startVal + deltaMm)
+            updateBody(id, 'x', newVal)
+
+        } else if (dragging.type === 'body-resize') {
             const id = dragging.id as string
-            const newWidth = Math.max(30, dragging.initialVal + deltaX)
-            updateBody(id, 'width', newWidth)
-        }
-        else if (dragging.type === 'body-resize-h') {
-            const id = dragging.id as string
-            // Dragging UP means negative deltaY, increasing height
-            const newHeight = Math.max(30, (dragging.initialYVal || 100) - deltaY)
-            updateBody(id, 'height', newHeight)
+            const newVal = Math.max(500, dragging.startVal + deltaMm)
+            updateBody(id, 'width', newVal)
+
+        } else if (dragging.type === 'chassis') {
+            const newVal = Math.max(data.axlePositions[data.axlePositions.length - 1] + 500, dragging.startVal + deltaMm)
+            setData(prev => ({ ...prev, chassisLength: newVal }))
         }
     }
 
-    const handleSvgMouseUp = () => {
-        setDragging(null)
-    }
+    const handleMouseUp = () => setDragging(null)
+
+
+    // --- RENDER HELPERS ---
+    // Convert MM relative to First Axle -> SVG X Coordinate
+    const getX = (mm: number) => ZERO_X + mmToPx(mm)
+
 
     return (
-        <div className="space-y-6">
-            {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Konfigurace podvozku</label>
+        <div className="bg-[#1e293b] rounded-xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col h-auto">
+
+            {/* TOOLBAR */}
+            <div className="bg-slate-900 p-2 flex items-center justify-between border-b border-slate-700">
+                <div className="flex items-center space-x-4">
+                    <span className="text-slate-400 text-xs font-mono px-2">TRAILERWIN-LIKE CONFIGURATOR v1.0</span>
+                    <div className="h-4 w-px bg-slate-700"></div>
                     <select
                         value={data.config}
                         onChange={(e) => setData(prev => ({ ...prev, config: e.target.value }))}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none"
+                        className="bg-slate-800 text-slate-200 text-xs border border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
                     >
-                        {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x6', '8x8'].map(opt => (
-                            <option key={opt} value={opt} className="text-gray-900">{opt}</option>
-                        ))}
+                        {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x8'].map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Značka vozidla</label>
                     <select
                         value={data.brand}
                         onChange={(e) => setData(prev => ({ ...prev, brand: e.target.value }))}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none"
+                        className="bg-slate-800 text-slate-200 text-xs border border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
                     >
-                        <option value="" className="text-gray-900">Vyberte značku...</option>
-                        {['Tatra', 'Mercedes-Benz', 'Volvo', 'Scania', 'MAN', 'DAF', 'Iveco', 'Renault'].map(opt => (
-                            <option key={opt} value={opt} className="text-gray-900">{opt}</option>
-                        ))}
+                        {['Tatra', 'Mercedes', 'Volvo', 'Scania', 'MAN', 'DAF', 'Iveco'].map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                 </div>
+                <div className="flex items-center space-x-2">
+                    <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded" title="Reset View"><RefreshCw className="w-4 h-4" /></button>
+                    <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded" title="Download PDF"><Download className="w-4 h-4" /></button>
+                </div>
             </div>
 
-            {/* Interactive Diagram */}
-            <div className="border border-white/10 rounded-xl bg-[#13161c] p-2 relative overflow-hidden shadow-2xl group select-none">
-                <div className="absolute top-4 left-4 text-xs font-mono text-cyan-400/50 flex flex-col pointer-events-none z-10">
-                    <span>ADVANCED VEHICLE CONFIGURATOR</span>
-                    <span className="text-[10px] text-gray-500 mt-1">AXLES: Move Rear Group together</span>
-                    <span className="text-[10px] text-gray-500">BODIES: Drag Edge to Resize W/H</span>
-                </div>
+            {/* MAIN WORKSPACE - SPLIT VIEW */}
+            <div className="flex flex-col lg:flex-row flex-1">
 
-                <svg
-                    ref={svgRef}
-                    width="100%"
-                    height="400"
-                    viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-                    className="max-w-5xl mx-auto cursor-default"
-                    onMouseMove={handleSvgMouseMove}
-                    onMouseUp={handleSvgMouseUp}
-                    onMouseLeave={handleSvgMouseUp}
-                >
-                    <defs>
-                        <linearGradient id="chassisGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#2d3748" />
-                            <stop offset="50%" stopColor="#1a202c" />
-                            <stop offset="100%" stopColor="#000" />
-                        </linearGradient>
-                        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="white" strokeWidth="0.5" opacity="0.03" />
-                        </pattern>
-                        <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
-                            <feOffset dx="1" dy="2" result="offsetblur" />
-                            <feComponentTransfer>
-                                <feFuncA type="linear" slope="0.5" />
-                            </feComponentTransfer>
-                            <feMerge>
-                                <feMergeNode />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                        </filter>
-                    </defs>
+                {/* BLUEPRINT CANVAS */}
+                <div className="flex-1 bg-[#0f172a] relative select-none overflow-hidden min-h-[500px]">
 
-                    <rect width="100%" height="100%" fill="url(#grid)" />
-                    <path d={`M 0 ${GROUND_Y + 28} L ${VIEW_WIDTH} ${GROUND_Y + 28}`} stroke="#2d3748" strokeWidth="1" />
+                    {/* Grid Background */}
+                    <div className="absolute inset-0 opacity-10 pointer-events-none"
+                        style={{
+                            backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)',
+                            backgroundSize: '20px 20px'
+                        }}
+                    ></div>
 
-                    {/* Chassis Rail */}
-                    <g filter="url(#dropShadow)">
-                        {/* Main Rail */}
-                        <path
-                            d={`M ${CAB_X + 20} ${CHASSIS_Y} L ${data.chassisLength} ${CHASSIS_Y} L ${data.chassisLength} ${CHASSIS_Y + 20} L ${CAB_X + 25} ${CHASSIS_Y + 20} Z`}
-                            fill="url(#chassisGrad)"
-                            stroke="#4a5568"
-                            strokeWidth="1"
-                        />
-                        {/* Rear Overhang Handle */}
-                        <g
-                            transform={`translate(${data.chassisLength}, ${CHASSIS_Y + 10})`}
-                            style={{ cursor: 'ew-resize' }}
-                            onMouseDown={(e) => {
-                                e.preventDefault()
-                                setDragging({ type: 'chassis-resize', id: 'chassis', startX: e.clientX, initialVal: data.chassisLength || 800 })
-                            }}
-                        >
-                            <circle r="8" fill="red" opacity="0.5" className="hover:opacity-100 transition-opacity" />
-                            <path d="M -3 -3 L 3 3 M 3 -3 L -3 3" stroke="white" strokeWidth="1.5" />
-                        </g>
-                        {/* Overhang Dimension */}
-                        {data.axlePositions && data.axlePositions.length > 0 && (
-                            <text x={data.chassisLength! + 10} y={CHASSIS_Y} fill="gray" fontSize="10" className="pointer-events-none">
-                                Převis: {Math.round((data.chassisLength! - data.axlePositions[data.axlePositions.length - 1]) / SCALE_PIXELS_PER_METER * 1000)} mm
-                            </text>
-                        )}
-                    </g>
+                    {/* SVG CANVAS */}
+                    <svg
+                        ref={svgRef}
+                        width="100%"
+                        height="100%"
+                        viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+                        className="cursor-crosshair"
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                        {/* DEFS */}
+                        <defs>
+                            <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                <rect width="10" height="10" fill="transparent" />
+                                <line x1="0" y1="0" x2="0" y2="10" stroke="#cbd5e1" strokeWidth="1" opacity="0.1" />
+                            </pattern>
+                            <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M0,0 L0,6 L9,3 z" fill="#facc15" />
+                            </marker>
+                            <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M9,0 L9,6 L0,3 z" fill="#facc15" />
+                            </marker>
+                        </defs>
 
-                    {/* Cabin */}
-                    <CabinVisual brand={data.brand} x={CAB_X} y={CHASSIS_Y} />
+                        {/* --- GROUND --- */}
+                        <line x1="0" y1={GROUND_Y + 48} x2={VIEW_WIDTH} y2={GROUND_Y + 48} stroke="#475569" strokeWidth="2" />
 
-                    {/* Axles */}
-                    {data.axlePositions?.map((x, i) => (
-                        <g
-                            key={`axle-${i}`}
-                            style={{ cursor: 'ew-resize' }}
-                            onMouseDown={(e) => {
-                                e.preventDefault()
-                                setDragging({ type: 'axle', id: i, startX: e.clientX, initialVal: x })
-                            }}
-                        >
-                            <line x1={x} y1={CHASSIS_Y + 15} x2={x} y2={GROUND_Y} stroke="#1a202c" strokeWidth="12" />
-                            <g transform={`translate(${x}, ${GROUND_Y})`}>
-                                <circle r="28" fill="#171923" stroke="#000" strokeWidth="2" />
-                                <circle r="18" fill="#a0aec0" stroke="#718096" strokeWidth="1" /> {/* Rim */}
-                                <circle r="5" fill="#2d3748" /> {/* Hub */}
-                                {/* Wheel Details */}
-                                {Array.from({ length: 8 }).map((_, bi) => (
-                                    <circle key={bi} cx={Math.cos(bi * Math.PI / 4) * 12} cy={Math.sin(bi * Math.PI / 4) * 12} r="1.5" fill="#4a5568" />
-                                ))}
+                        {/* --- CHASSIS --- */}
+                        <g>
+                            {/* Frame Line */}
+                            <path
+                                d={`M ${getX(-data.frontOverhang)} ${CHASSIS_Y} L ${getX(data.chassisLength)} ${CHASSIS_Y} L ${getX(data.chassisLength)} ${CHASSIS_Y + 25} L ${getX(-data.frontOverhang)} ${CHASSIS_Y + 25} Z`}
+                                fill="#1e293b" stroke="#94a3b8" strokeWidth="2"
+                            />
+                            {/* Crossmembers (visual) */}
+                            {Array.from({ length: Math.floor(data.chassisLength / 1000) }).map((_, i) => (
+                                <line key={i} x1={getX(i * 1000)} y1={CHASSIS_Y} x2={getX(i * 1000)} y2={CHASSIS_Y + 25} stroke="#334155" strokeWidth="1" />
+                            ))}
+
+                            {/* Chassis Resize Handle */}
+                            <g
+                                transform={`translate(${getX(data.chassisLength)}, ${CHASSIS_Y + 12.5})`}
+                                style={{ cursor: 'ew-resize' }}
+                                onMouseDown={(e) => {
+                                    e.preventDefault(); e.stopPropagation();
+                                    setDragging({ type: 'chassis', id: 'chassis', startX: e.clientX, startVal: data.chassisLength })
+                                }}
+                            >
+                                <circle r="6" fill="#facc15" stroke="black" />
+                                <path d="M-3 0 L3 0 M0 -3 L0 3" stroke="black" strokeWidth="1" />
                             </g>
                         </g>
-                    ))}
 
-                    {/* Bodies */}
-                    {data.bodies.map((body) => {
-                        const isSelected = dragging?.type.startsWith('body') && dragging.id === body.id
-                        return (
-                            <g key={body.id} transform={`translate(${body.x}, ${CHASSIS_Y})`}>
-                                {/* Render wrapper moving UP by height */}
-                                <g transform={`translate(0, -${body.height})`}>
+                        {/* --- AXLES --- */}
+                        {data.axlePositions.map((pos, i) => {
+                            const x = getX(pos)
+                            return (
+                                <g key={i} transform={`translate(${x}, ${GROUND_Y})`}
+                                    style={{ cursor: i === 0 ? 'default' : 'ew-resize' }}
+                                    onMouseDown={(e) => {
+                                        if (i === 0) return;
+                                        e.preventDefault(); e.stopPropagation();
+                                        setDragging({ type: 'axle', id: i, startX: e.clientX, startVal: pos })
+                                    }}
+                                >
+                                    {/* Vertical Centerline */}
+                                    <line x1="0" y1="-200" x2="0" y2="50" stroke="#facc15" strokeWidth="1" strokeDasharray="5 2" opacity="0.3" />
+                                    {/* Tire */}
+                                    <circle r="44" fill="#0f172a" stroke="#cbd5e1" strokeWidth="2" />
+                                    <circle r="25" fill="none" stroke="#64748b" strokeWidth="1" strokeDasharray="4 2" />
+                                    <circle r="5" fill="#94a3b8" />
+                                    {/* Info */}
+                                    <text y="60" textAnchor="middle" fill="#64748b" fontSize="10" fontFamily="monospace">AXLE {i + 1}</text>
+                                </g>
+                            )
+                        })}
 
-                                    {/* Body Visuals */}
-                                    <BodyVisuals type={body.type} width={body.width} height={body.height} extensions={body.extensions} />
+                        {/* --- CABIN (Stylized Wireframe) --- */}
+                        <g transform={`translate(${getX(-data.frontOverhang)}, ${CHASSIS_Y})`}>
+                            {/* Bumper area */}
+                            <rect x="0" y="0" width="100" height="30" fill="none" stroke="#cbd5e1" strokeWidth="1" />
+                            {/* Main Cab */}
+                            <path d="M 0 0 L 0 -130 L 150 -130 L 150 0" fill="none" stroke="#cbd5e1" strokeWidth="2" />
+                            {/* Window */}
+                            <rect x="10" y="-120" width="80" height="50" fill="url(#hatch)" stroke="#475569" />
+                            {/* Wheel Arch */}
+                            <path d="M 110 50 Q 150 0 190 50" fill="none" stroke="#cbd5e1" strokeWidth="1" transform="translate(0, -10)" />
+                            {/* Brand Text */}
+                            <text x="75" y="-60" textAnchor="middle" fill="#cbd5e1" fontSize="14" fontWeight="bold" opacity="0.5">{data.brand?.toUpperCase()}</text>
+                        </g>
 
-                                    {/* Move Handler (Center) */}
+                        {/* --- BODIES --- */}
+                        {data.bodies.map((body, i) => (
+                            <g key={body.id} transform={`translate(${getX(body.x)}, ${CHASSIS_Y})`}>
+                                <g transform={`translate(0, -${mmToPx(body.height)})`}>
+                                    {/* Render Body */}
                                     <rect
-                                        x="0" y="0" width={body.width} height={body.height}
-                                        fill="transparent"
+                                        width={mmToPx(body.width)}
+                                        height={mmToPx(body.height)}
+                                        fill={dragging?.id === body.id ? "rgba(59, 130, 246, 0.2)" : "url(#hatch)"}
+                                        stroke="#3b82f6"
+                                        strokeWidth="2"
                                         style={{ cursor: 'move' }}
                                         onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            setDragging({ type: 'body-move', id: body.id, startX: e.clientX, initialVal: body.x })
+                                            e.preventDefault(); e.stopPropagation();
+                                            setDragging({ type: 'body', id: body.id, startX: e.clientX, startVal: body.x })
                                         }}
                                     />
 
-                                    {/* Resize Width Handle (Right) */}
+                                    {/* Graphics by Type */}
+                                    {body.type === 'Sklápěč' && <path d={`M 0 0 L ${mmToPx(body.width)} 0 L ${mmToPx(body.width) - 20} ${mmToPx(body.height)} L 5 ${mmToPx(body.height)}`} fill="none" stroke="#3b82f6" strokeWidth="1" />}
+                                    {body.type === 'Hydraulická ruka' && (
+                                        <g>
+                                            <rect x={mmToPx(body.width) / 2 - 10} y={mmToPx(body.height) - 30} width="20" height="30" fill="#f97316" />
+                                            <path d={`M ${mmToPx(body.width) / 2} ${mmToPx(body.height) - 30} L ${mmToPx(body.width) / 2} 0`} stroke="#f97316" strokeWidth="4" />
+                                        </g>
+                                    )}
+
+                                    {/* Resize Handle */}
                                     <rect
-                                        x={body.width - 10} y="0" width={15} height={body.height}
-                                        fill="white" opacity="0" className="hover:opacity-20 cursor-ew-resize"
+                                        x={mmToPx(body.width) - 10} y="0" width="10" height={mmToPx(body.height)}
+                                        fill="#facc15" opacity="0.5"
+                                        style={{ cursor: 'ew-resize' }}
                                         onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
-                                            setDragging({ type: 'body-resize-w', id: body.id, startX: e.clientX, initialVal: body.width })
-                                        }}
-                                    />
-                                    {/* Resize Height Handle (Top) */}
-                                    <rect
-                                        x="0" y="-5" width={body.width} height={10}
-                                        fill="white" opacity="0" className="hover:opacity-20 cursor-ns-resize"
-                                        onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
-                                            setDragging({
-                                                type: 'body-resize-h',
-                                                id: body.id,
-                                                startX: e.clientX,
-                                                mouseY: e.clientY,
-                                                initialVal: body.width, // unused
-                                                initialYVal: body.height
-                                            })
+                                            e.preventDefault(); e.stopPropagation();
+                                            setDragging({ type: 'body-resize', id: body.id, startX: e.clientX, startVal: body.width })
                                         }}
                                     />
 
-                                    {/* Labels */}
-                                    <text x={body.width / 2} y={body.height / 2} textAnchor="middle" fill="white" fontWeight="bold" opacity="0.8" pointerEvents="none" style={{ textShadow: '0 1px 2px black' }}>
-                                        {body.type.toUpperCase()}
-                                    </text>
-                                    {/* Dimensions */}
-                                    <text x={body.width / 2} y="-15" textAnchor="middle" fill="#718096" fontSize="10">{Math.round(body.width / SCALE_PIXELS_PER_METER * 1000)} mm</text>
-                                    <text x="-15" y={body.height / 2} textAnchor="middle" fill="#718096" fontSize="10" transform={`rotate(-90, -15, ${body.height / 2})`}>{Math.round(body.height / SCALE_PIXELS_PER_METER * 1000)} mm</text>
+                                    {/* Info Label */}
+                                    <rect x="0" y="-25" width="80" height="20" rx="2" fill="#0f172a" stroke="#3b82f6" />
+                                    <text x="40" y="-12" textAnchor="middle" fill="#e2e8f0" fontSize="10">{body.type}</text>
+                                    <text x={mmToPx(body.width) / 2} y={mmToPx(body.height) / 2} textAnchor="middle" fill="#3b82f6" opacity="0.3" fontSize="24" fontWeight="bold">{(body.width / 1000).toFixed(1)}m</text>
                                 </g>
                             </g>
-                        )
-                    })}
+                        ))}
 
-                    {/* Wheelbase Dimensions */}
-                    {data.axlePositions && data.axlePositions.length > 1 && (
-                        <WheelbaseDimension axles={data.axlePositions} />
-                    )}
+                        {/* --- MEASUREMENTS / DIMENSIONS --- */}
+                        <g pointerEvents="none">
+                            {/* Wheelbases */}
+                            {data.axlePositions.map((pos, i) => {
+                                if (i === 0) return null
+                                const prev = data.axlePositions[i - 1]
+                                const cx = getX(prev + (pos - prev) / 2)
+                                const y = GROUND_Y + 70
 
-                </svg>
-            </div>
+                                return (
+                                    <g key={`dim-${i}`}>
+                                        <line x1={getX(prev)} y1={y} x2={getX(pos)} y2={y} stroke="#facc15" strokeWidth="1" markerStart="url(#arrow-start)" markerEnd="url(#arrow)" />
+                                        <line x1={getX(prev)} y1={GROUND_Y + 50} x2={getX(prev)} y2={y + 5} stroke="#64748b" strokeWidth="1" />
+                                        <line x1={getX(pos)} y1={GROUND_Y + 50} x2={getX(pos)} y2={y + 5} stroke="#64748b" strokeWidth="1" />
+                                        <rect x={cx - 25} y={y - 8} width="50" height="16" fill="#0f172a" />
+                                        <text x={cx} y={y + 3} textAnchor="middle" fill="#facc15" fontSize="11" fontFamily="monospace" fontWeight="bold">{Math.round(pos - prev)}</text>
+                                    </g>
+                                )
+                            })}
 
-            {/* List and Config */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <h3 className="text-lg font-semibold text-white">Konfigurace nástaveb</h3>
-                    <button onClick={addBody} className="flex items-center space-x-2 text-sm bg-purple-600 px-3 py-1.5 rounded hover:bg-purple-500 transition-colors text-white">
-                        <Plus className="w-4 h-4" />
-                        <span>Přidat komponentu</span>
-                    </button>
+                            {/* Total Length  & Overhangs*/}
+                            {(() => {
+                                const lastAxle = data.axlePositions[data.axlePositions.length - 1]
+                                const rearOh = data.chassisLength - lastAxle
+
+                                // Rear Overhang
+                                const roX = getX(lastAxle + rearOh / 2)
+                                const roY = GROUND_Y + 70
+                                return (
+                                    <g>
+                                        <line x1={getX(lastAxle)} y1={roY} x2={getX(data.chassisLength)} y2={roY} stroke="#94a3b8" strokeWidth="1" markerEnd="url(#arrow)" markerStart="url(#arrow-start)" />
+                                        <line x1={getX(data.chassisLength)} y1={CHASSIS_Y} x2={getX(data.chassisLength)} y2={roY} stroke="#64748b" strokeWidth="1" strokeDasharray="2 2" />
+                                        <rect x={roX - 20} y={roY - 7} width="40" height="14" fill="#0f172a" />
+                                        <text x={roX} y={roY + 3} textAnchor="middle" fill="#94a3b8" fontSize="10" fontFamily="monospace">ROH {Math.round(rearOh)}</text>
+                                    </g>
+                                )
+                            })()}
+
+                            {/* Body Positions */}
+                            {data.bodies.map((b, i) => (
+                                <g key={`bdim-${i}`}>
+                                    {/* Distance from Front Axle (0) */}
+                                    {/*<line x1={getX(0)} y1={CHASSIS_Y - mmToPx(b.height) - 20} x2={getX(b.x)} y2={CHASSIS_Y - mmToPx(b.height) - 20} stroke="cyan" opacity="0.5" />
+                                     <text x={getX(b.x/2)} y={CHASSIS_Y - mmToPx(b.height) - 25} fill="cyan" fontSize="10">{Math.round(b.x)}</text>*/}
+                                </g>
+                            ))}
+                        </g>
+
+                        {/* Scale visual */}
+                        <g transform="translate(20, 20)">
+                            <rect width="100" height="4" fill="white" />
+                            <rect width="50" height="4" fill="black" />
+                            <text x="0" y="16" fill="white" fontSize="10">0</text>
+                            <text x="100" y="16" fill="white" fontSize="10">1m</text>
+                        </g>
+
+                    </svg>
                 </div>
 
-                {data.bodies.map(body => (
-                    <div key={body.id} className="bg-white/5 border border-white/10 p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                            <div>
-                                <label className="text-xs text-gray-400 block mb-1">Typ nástavby</label>
-                                <select
-                                    value={body.type}
-                                    onChange={(e) => updateBody(body.id, 'type', e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white"
+                {/* SIDEBAR PROPERTIES PANEL */}
+                <div className="w-full lg:w-80 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto max-h-[500px]">
+                    <h3 className="text-slate-100 font-bold mb-4 flex items-center">
+                        <Scale className="w-4 h-4 mr-2" /> Vlastnosti
+                    </h3>
+
+                    {/* Add Component List */}
+                    <div className="mb-6">
+                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Komponenty</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {BODY_TYPES.slice(0, 6).map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => addBody(type)}
+                                    className="bg-slate-700 hover:bg-blue-600 text-slate-200 text-xs py-2 px-3 rounded text-left transition-colors flex items-center justify-between"
                                 >
-                                    {BODY_TYPES.map(t => <option key={t} value={t} className="text-black">{t}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-xs text-gray-400 block mb-1">Popis / Model</label>
-                                <input
-                                    value={body.description}
-                                    onChange={(e) => updateBody(body.id, 'description', e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white"
-                                    placeholder="Specifikace..."
-                                />
-                            </div>
-
-                            {/* Specific Controls */}
-                            {body.type === 'Hydraulická ruka' && (
-                                <div>
-                                    <label className="text-xs text-gray-400 block mb-1">Počet výsuvů (1-8)</label>
-                                    <input
-                                        type="number" min="1" max="8"
-                                        value={body.extensions || 1}
-                                        onChange={(e) => updateBody(body.id, 'extensions', parseInt(e.target.value))}
-                                        className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-sm text-white"
-                                    />
-                                </div>
-                            )}
-
-                            <div className="flex items-center space-x-2 md:col-span-3 pt-2">
-                                <span className="text-xs text-gray-500">Pozice: {Math.round(body.x)} | Délka: {Math.round(body.width)} | Výška: {Math.round(body.height)}</span>
-                            </div>
+                                    <span>{type}</span>
+                                    <Plus className="w-3 h-3 opacity-50" />
+                                </button>
+                            ))}
                         </div>
-                        <button onClick={() => removeBody(body.id)} className="p-2 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded">
-                            <Trash2 className="w-4 h-4" />
-                        </button>
                     </div>
-                ))}
+
+                    {/* Active Bodies List with Details */}
+                    <div className="space-y-4">
+                        {data.bodies.map((body, i) => (
+                            <div key={body.id} className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="font-bold text-slate-200 text-sm">{body.type}</span>
+                                    <button onClick={() => removeBody(body.id)} className="text-slate-400 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-slate-400">Pozice (mm)</label>
+                                        <input
+                                            type="number"
+                                            value={Math.round(body.x)}
+                                            onChange={(e) => updateBody(body.id, 'x', parseInt(e.target.value))}
+                                            className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-yellow-400 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-slate-400">Délka (mm)</label>
+                                        <input
+                                            type="number"
+                                            value={Math.round(body.width)}
+                                            onChange={(e) => updateBody(body.id, 'width', parseInt(e.target.value))}
+                                            className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-slate-200 font-mono"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-slate-400">Váha (kg)</label>
+                                        <input
+                                            type="number"
+                                            value={body.weight || 0}
+                                            onChange={(e) => updateBody(body.id, 'weight', parseInt(e.target.value))}
+                                            className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-green-400 font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Chassis Stats */}
+                    <div className="mt-6 pt-4 border-t border-slate-700">
+                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Souhrn</div>
+                        <div className="flex justify-between text-sm text-slate-300 mb-1">
+                            <span>Celková délka:</span>
+                            <span className="font-mono">{Math.round((data.chassisLength + data.frontOverhang))} mm</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-slate-300 mb-1">
+                            <span>Rozvory:</span>
+                            <span className="font-mono text-xs">{data.axlePositions.map((p, i) => i > 0 ? (p - data.axlePositions[i - 1]) : null).filter(Boolean).join(' + ')}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-slate-300">
+                            <span>Váha nástaveb:</span>
+                            <span className="font-mono text-green-400">{data.bodies.reduce((a, b) => a + (b.weight || 0), 0)} kg</span>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     )
 }
 
-// --- Visual Components ---
-
-const SCALE_PIXELS_PER_METER = 80
-
-function CabinVisual({ brand, x, y }: { brand: string, x: number, y: number }) {
-    // Tatra (Phoenix/Force - typically cabover but distinct)
-    if (brand === 'Tatra') {
-        return (
-            <g transform={`translate(${x}, ${y - 110})`} filter="url(#dropShadow)">
-                <path d="M 0 110 L 0 20 L 10 5 L 80 5 L 90 20 L 90 90 L 80 110 Z" fill="#b91c1c" stroke="white" strokeWidth="1" /> {/* Tatra Redish */}
-                <path d="M 5 35 L 5 20 L 30 20 L 30 50 L 5 35" fill="#333" opacity="0.8" />
-                <rect x="5" y="70" width="80" height="20" rx="2" fill="black" opacity="0.6" />
-                <text x="45" y="60" textAnchor="middle" fill="white" fontWeight="bold" fontSize="10">TATRA</text>
-            </g>
-        )
-    }
-    // Mercedes / Actros
-    if (brand === 'Mercedes-Benz') {
-        return (
-            <g transform={`translate(${x}, ${y - 120})`} filter="url(#dropShadow)">
-                <path d="M 0 120 L 0 10 L 85 10 L 90 30 L 90 100 L 85 120 Z" fill="#cbd5e0" stroke="#718096" strokeWidth="1" />
-                {/* Grill Lines */}
-                <line x1="10" y1="80" x2="80" y2="80" stroke="black" strokeWidth="2" opacity="0.3" />
-                <line x1="12" y1="90" x2="78" y2="90" stroke="black" strokeWidth="2" opacity="0.3" />
-                <line x1="15" y1="100" x2="75" y2="100" stroke="black" strokeWidth="2" opacity="0.3" />
-                {/* Windows */}
-                <path d="M 5 40 L 5 20 L 40 20 L 40 45 Z" fill="#1a202c" opacity="0.7" />
-                <path d="M 45 45 L 45 20 L 80 20 L 85 45 Z" fill="#1a202c" opacity="0.7" />
-            </g>
-        )
-    }
-    // Volvo (Slash)
-    if (brand === 'Volvo') {
-        return (
-            <g transform={`translate(${x}, ${y - 115})`} filter="url(#dropShadow)">
-                <path d="M 0 115 L 0 10 L 85 10 L 95 40 L 95 100 L 85 115 Z" fill="#2b6cb0" stroke="#4299e1" strokeWidth="1" />
-                {/* Slash */}
-                <line x1="10" y1="100" x2="80" y2="60" stroke="#ecc94b" strokeWidth="3" />
-                <circle cx="45" cy="80" r="6" fill="#ecc94b" />
-                {/* Windows */}
-                <path d="M 5 40 L 5 20 L 80 20 L 90 45 L 5 45" fill="#1a202c" opacity="0.6" />
-            </g>
-        )
-    }
-    // Default Box
-    return (
-        <g transform={`translate(${x}, ${y - 100})`} filter="url(#dropShadow)">
-            <path d="M 0 100 L 0 10 Q 0 0 10 0 L 80 0 Q 90 0 90 10 L 90 100 Z" fill="#4a5568" stroke="white" strokeWidth="1" />
-            <rect x="5" y="10" width="80" height="30" rx="2" fill="#1a202c" opacity="0.6" />
-            <text x="45" y="70" textAnchor="middle" fill="white" fontSize="9" opacity="0.5">{brand || 'CAB'}</text>
-        </g>
-    )
-}
-
-function BodyVisuals({ type, width, height, extensions = 1 }: { type: string, width: number, height: number, extensions?: number }) {
-    // Shared Shadow Filter applied to parent
-
-    if (type === 'Valník') {
-        return (
-            <g>
-                <rect width={width} height={height} fill="#a0aec0" fillOpacity="0.3" stroke="white" strokeWidth="2" />
-                {/* Sides */}
-                <rect x="0" y={height - 20} width={width} height="20" fill="#4a5568" />
-                <line x1="0" y1={height - 20} x2={width} y2={height - 20} stroke="white" strokeWidth="1" />
-                {/* Posts */}
-                <rect x="0" y="0" width="5" height={height} fill="#2d3748" />
-                <rect x={width / 2} y="0" width="5" height={height} fill="#2d3748" />
-                <rect x={width - 5} y="0" width="5" height={height} fill="#2d3748" />
-            </g>
-        )
-    }
-
-    if (type === 'Sklápěč') {
-        return (
-            <g>
-                <path d={`M 0 0 L ${width} 0 L ${width - 10} ${height} L 10 ${height} Z`} fill="#48bb78" fillOpacity="0.6" stroke="white" strokeWidth="1" />
-                {/* Ribs */}
-                <line x1={width / 3} y1="0" x2={width / 3 + 5} y2={height} stroke="white" strokeOpacity="0.3" />
-                <line x1={width * 2 / 3} y1="0" x2={width * 2 / 3 - 5} y2={height} stroke="white" strokeOpacity="0.3" />
-                {/* Piston Hint */}
-                <line x1={width / 2} y1={height} x2={width / 2 - 20} y2={height + 20} stroke="#2d3748" strokeWidth="4" />
-            </g>
-        )
-    }
-
-    if (type === 'Hydraulická ruka') {
-        return (
-            <g>
-                {/* Base */}
-                <rect x={width / 2 - 20} y={height - 20} width="40" height="20" fill="#ed8936" stroke="white" />
-                {/* Legs (Outriggers) visual */}
-                <path d={`M ${width / 2 - 25} ${height} L ${width / 2 - 35} ${height + 30}`} stroke="#ed8936" strokeWidth="4" />
-                <path d={`M ${width / 2 + 25} ${height} L ${width / 2 + 35} ${height + 30}`} stroke="#ed8936" strokeWidth="4" />
-
-                {/* Main Column */}
-                <rect x={width / 2 - 10} y={height - 80} width="20" height="60" fill="#ed8936" rx="2" />
-
-                {/* Booms / Extensions */}
-                {Array.from({ length: extensions }).map((_, i) => {
-                    const segmentLen = Math.min(40, (width - 40) / extensions)
-                    const startX = width / 2
-                    const startY = height - 80
-                    // Zig zag folding visual
-                    return (
-                        <g key={i} transform={`translate(${startX}, ${startY}) rotate(${-110 + (i * 15)})`}>
-                            <rect x="0" y="-8" width={segmentLen + (i * 10)} height="16" rx="2" fill="#dd6b20" stroke="white" strokeWidth="1" />
-                            <circle cx="0" cy="0" r="3" fill="white" />
-                        </g>
-                    )
-                })}
-            </g>
-        )
-    }
-
-    if (type === 'Cisterna') {
-        return (
-            <g>
-                <rect x="0" y="10" width={width} height={height - 20} rx={(height - 20) / 2} fill="#cbd5e0" stroke="white" strokeWidth="2" />
-                {/* Bands */}
-                <rect x={width * 0.2} y="10" width="10" height={height - 20} fill="#a0aec0" opacity="0.5" />
-                <rect x={width * 0.5} y="10" width="10" height={height - 20} fill="#a0aec0" opacity="0.5" />
-                <rect x={width * 0.8} y="10" width="10" height={height - 20} fill="#a0aec0" opacity="0.5" />
-                {/* Top Hatch */}
-                <rect x={width * 0.5 - 15} y="0" width="30" height="10" fill="#718096" />
-            </g>
-        )
-    }
-
-    // Default Box / Skříň
-    return (
-        <g>
-            <rect width={width} height={height} fill="#4299e1" fillOpacity="0.4" stroke="white" strokeWidth="1" />
-            <path d={`M 0 0 L ${width} ${height}`} stroke="white" strokeOpacity="0.2" />
-            <path d={`M ${width} 0 L 0 ${height}`} stroke="white" strokeOpacity="0.2" />
-            <rect x="0" y="0" width={width} height={height} fill="url(#grid)" opacity="0.2" />
-        </g>
-    )
-}
-
-function WheelbaseDimension({ axles }: { axles: number[] }) {
-    if (axles.length < 2) return null
-    // Assuming axles are sorted
-    const first = axles[0]
-    const second = axles[1] // Wheelbase is usually 1st to 2nd axle
-
-    const y = GROUND_Y + 40
-
-    return (
-        <g>
-            <line x1={first} y1={y} x2={second} y2={y} stroke="#718096" strokeWidth="1" />
-            <line x1={first} y1={GROUND_Y + 10} x2={first} y2={y + 5} stroke="#718096" strokeWidth="0.5" strokeDasharray="3 3" />
-            <line x1={second} y1={GROUND_Y + 10} x2={second} y2={y + 5} stroke="#718096" strokeWidth="0.5" strokeDasharray="3 3" />
-            <text x={(first + second) / 2} y={y - 5} textAnchor="middle" fill="#a0aec0" fontSize="10">{Math.round((second - first) / SCALE_PIXELS_PER_METER * 1000)} mm</text>
-        </g>
-    )
-}
-
-function getDefaultAxlePositions(config: string) {
-    // Simple defaults
-    const is8 = config.startsWith('8')
-    const is6 = config.startsWith('6')
-
-    if (is8) return [100, 200, 500, 600]
-    if (is6) return [100, 450, 550]
-    return [100, 450]
+// --- UTILS ---
+function getDefaultAxleOffsetsMM(config: string) {
+    // Returns axle positions relative to 1st Achse (0) in Millimeters
+    if (config.startsWith('8')) return [0, 1990, 5100, 6450] // T158 8x8
+    if (config.startsWith('6')) return [0, 3600, 4950] // 6x6 Standard
+    return [0, 3800] // 4x4
 }
 
 function getAxleCount(config: string) {
-    return config.startsWith('8') ? 4 : config.startsWith('6') ? 3 : 2
+    if (config.startsWith('8')) return 4
+    if (config.startsWith('6')) return 3
+    return 2
 }

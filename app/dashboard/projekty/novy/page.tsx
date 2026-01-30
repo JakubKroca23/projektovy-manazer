@@ -72,7 +72,7 @@ export default function NovyProjektPage() {
             customer: formData.customer,
             billing_company: formData.billing_company,
             delivery_address: formData.delivery_address,
-            quantity: formData.quantity,
+            quantity: formData.quantity ? parseInt(formData.quantity) : null,
             expected_start_date: formData.expected_start_date,
             deadline: formData.deadline,
             required_action: formData.required_action,
