@@ -6,16 +6,18 @@ import ProjectActions from '@/components/projects/project-actions'
 
 import GenerateJobsButton from '@/components/projects/generate-jobs-button'
 
-export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
+
     // Basic validation of UUID format to prevent Postgres errors
-    const isValidUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(params.id)
+    const isValidUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)
 
     if (!isValidUUID) {
-        console.error(`Invalid Project ID: ${params.id}`)
+        console.error(`Invalid Project ID: ${id}`)
         return (
             <div className="p-8 text-center text-gray-400">
                 <h2 className="text-xl font-bold text-white mb-2">Chybný odkaz na projekt</h2>
-                <p>ID projektu "{params.id}" není platné. Zkuste se vrátit na seznam projektů.</p>
+                <p>ID projektu "{id}" není platné. Zkuste se vrátit na seznam projektů.</p>
                 <Link href="/dashboard/projekty" className="inline-block mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
                     Zpět na projekty
                 </Link>
@@ -56,7 +58,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                 completion_percentage
             )
         `)
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
     if (error) {
