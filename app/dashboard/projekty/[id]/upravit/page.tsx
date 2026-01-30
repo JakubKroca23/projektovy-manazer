@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import AccessoriesForm, { AccessoryItem } from '@/components/projects/accessories-form'
+import VehicleBuilder, { VehicleData, BodyItem } from '@/components/projects/vehicle-builder'
 
 export default function UpravitProjektPage() {
     const router = useRouter()
@@ -39,10 +40,7 @@ export default function UpravitProjektPage() {
         zakazka_sro: '',
         vehicle_config: '',
         vehicle_brand: '',
-        body_type: '',
-        crane_type: '',
-        outriggers_type: '',
-        pump_type: '',
+        bodies: [] as BodyItem[],
         accessories: [] as AccessoryItem[]
     })
 
@@ -86,10 +84,7 @@ export default function UpravitProjektPage() {
                     zakazka_sro: data.zakazka_sro || '',
                     vehicle_config: data.vehicle_config || '',
                     vehicle_brand: data.vehicle_brand || '',
-                    body_type: data.body_type || '',
-                    crane_type: data.crane_type || '',
-                    outriggers_type: data.outriggers_type || '',
-                    pump_type: data.pump_type || '',
+                    bodies: data.bodies ? (data.bodies as unknown as BodyItem[]) : [],
                     accessories: data.accessories ? (data.accessories as unknown as AccessoryItem[]) : []
                 })
             }
@@ -102,6 +97,15 @@ export default function UpravitProjektPage() {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
+    }
+
+    const handleVehicleChange = (spec: VehicleData) => {
+        setFormData(prev => ({
+            ...prev,
+            vehicle_config: spec.config,
+            vehicle_brand: spec.brand,
+            bodies: spec.bodies
+        }))
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -133,10 +137,7 @@ export default function UpravitProjektPage() {
                 zakazka_sro: formData.zakazka_sro || null,
                 vehicle_config: formData.vehicle_config || null,
                 vehicle_brand: formData.vehicle_brand || null,
-                body_type: formData.body_type || null,
-                crane_type: formData.crane_type || null,
-                outriggers_type: formData.outriggers_type || null,
-                pump_type: formData.pump_type || null,
+                bodies: formData.bodies, // JSONB
                 accessories: formData.accessories // JSONB
             })
             .eq('id', id)
@@ -203,54 +204,24 @@ export default function UpravitProjektPage() {
                 {/* Specifikace vozidla */}
                 <div className="space-y-4">
                     <h3 className="text-xl font-semibold text-white border-b border-white/10 pb-2">Specifikace vozidla</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-200 mb-2">Konfigurace podvozku</label>
-                            <select name="vehicle_config" value={formData.vehicle_config} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
-                                <option value="" className="text-gray-900">Vyberte konfig...</option>
-                                {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x6', '8x8'].map(opt => (
-                                    <option key={opt} value={opt} className="text-gray-900">{opt}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-200 mb-2">Značka vozidla</label>
-                            <select name="vehicle_brand" value={formData.vehicle_brand} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
-                                <option value="" className="text-gray-900">Vyberte značku...</option>
-                                {['Tatra', 'Mercedes-Benz', 'Volvo', 'Scania', 'MAN', 'DAF', 'Iveco', 'Renault'].map(opt => (
-                                    <option key={opt} value={opt} className="text-gray-900">{opt}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-200 mb-2">Typ nástavby</label>
-                            <select name="body_type" value={formData.body_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
-                                <option value="" className="text-gray-900">Vyberte typ...</option>
-                                {['Sklápěč', 'Valník', 'Kontejnerový nosič', 'Cisterna', 'Skříňová', 'Domíchávač', 'Jeřáb', 'Jiná'].map(opt => (
-                                    <option key={opt} value={opt} className="text-gray-900">{opt}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-200 mb-2">Typ jeřábu</label>
-                            <input type="text" name="crane_type" value={formData.crane_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-200 mb-2">Typ podpěr</label>
-                            <input type="text" name="outriggers_type" value={formData.outriggers_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-200 mb-2">Čerpadlo</label>
-                            <input type="text" name="pump_type" value={formData.pump_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                        </div>
-                        <div className="md:col-span-3 pt-4">
-                            <label className="block text-base font-medium text-white mb-4">Podrobný popis příslušenství (dle specifikace)</label>
-                            <div className="bg-black/30 rounded-lg p-1 overflow-hidden border border-white/10">
-                                <AccessoriesForm
-                                    initialData={formData.accessories}
-                                    onChange={(newAcc) => setFormData(prev => ({ ...prev, accessories: newAcc }))}
-                                />
-                            </div>
+                    <div className="py-2">
+                        <VehicleBuilder
+                            initialData={{
+                                config: formData.vehicle_config,
+                                brand: formData.vehicle_brand,
+                                bodies: formData.bodies
+                            }}
+                            onChange={handleVehicleChange}
+                        />
+                    </div>
+
+                    <div className="pt-4">
+                        <label className="block text-base font-medium text-white mb-4">Podrobný popis příslušenství (dle specifikace)</label>
+                        <div className="bg-black/30 rounded-lg p-1 overflow-hidden border border-white/10">
+                            <AccessoriesForm
+                                initialData={formData.accessories}
+                                onChange={(newAcc) => setFormData(prev => ({ ...prev, accessories: newAcc }))}
+                            />
                         </div>
                     </div>
                 </div>
