@@ -8,29 +8,34 @@ export default async function ProjektyPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Get all projects via simple select (RLS handles security now)
+    // Get all projects via simple select (RLS handles security now)
     const { data: projects } = await supabase
         .from('projects')
         .select(`
-      id,
-      name,
-      status,
-      created_at,
-      expected_start_date,
-      deadline,
-        due_date,
-        created_at,
-        start_date,
-        job_id
-      ),
-      jobs (
-        id,
-        name,
-        status,
-        deadline,
-        expected_completion_date,
-        created_at
-      )
-    `)
+            id,
+            name,
+            status,
+            created_at,
+            expected_start_date,
+            deadline,
+            tasks (
+                id,
+                title,
+                status,
+                due_date,
+                created_at,
+                start_date,
+                job_id
+            ),
+            jobs (
+                id,
+                name,
+                status,
+                deadline,
+                expected_completion_date,
+                created_at
+            )
+        `)
         .order('created_at', { ascending: false })
 
     return (
@@ -46,7 +51,7 @@ export default async function ProjektyPage() {
                     className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                 >
                     <Plus className="w-5 h-5" />
-                    <span>Nová zakázka</span>
+                    <span>Nový projekt</span>
                 </Link>
             </div>
 
