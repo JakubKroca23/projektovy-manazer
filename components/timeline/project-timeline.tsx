@@ -16,6 +16,7 @@ interface Task {
     status: string
     due_date: string | null
     created_at: string
+    start_date?: string | null
 }
 
 interface Project {
@@ -38,7 +39,8 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     // Drag & Drop State
     const [isDragging, setIsDragging] = useState(false)
     const [dragType, setDragType] = useState<'move' | 'resize-start' | 'resize-end' | null>(null)
-    const [dragProjectId, setDragProjectId] = useState<string | null>(null)
+    const [dragItemType, setDragItemType] = useState<'project' | 'task' | null>(null)
+    const [dragItemId, setDragItemId] = useState<string | null>(null)
     const [dragStartX, setDragStartX] = useState(0)
     const [dragInitialDates, setDragInitialDates] = useState<{ start: Date, end: Date } | null>(null)
 
@@ -80,7 +82,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     const getPosition = (start: string | null, end: string | null, created: string) => {
         const timelineStart = timelineData.startDate
         const itemStart = start ? new Date(start) : new Date(created)
-        const itemEnd = end ? new Date(end) : addDays(itemStart, 30)
+        const itemEnd = end ? new Date(end) : addDays(itemStart, 30) // Default duration if no end date
 
         const startDiff = differenceInDays(itemStart, timelineStart)
         const duration = differenceInDays(itemEnd, itemStart)
@@ -90,7 +92,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
         if (differenceInDays(itemStart, timelineData.endDate!) > 0) return null // Starts after view
 
         const leftPercent = (startDiff / timelineData.totalDays) * 100
-        const widthPercent = (duration / timelineData.totalDays) * 100
+        const widthPercent = (Math.max(duration, 1) / timelineData.totalDays) * 100
 
         return {
             left: `${leftPercent}%`,
@@ -99,25 +101,44 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
     }
 
     // Drag Handlers
-    const handleMouseDown = (e: React.MouseEvent, projectId: string, type: 'move' | 'resize-start' | 'resize-end') => {
+    const handleMouseDown = (e: React.MouseEvent, itemId: string, itemType: 'project' | 'task', type: 'move' | 'resize-start' | 'resize-end') => {
         e.preventDefault()
         e.stopPropagation()
-        const project = projects.find(p => p.id === projectId)
-        if (!project) return
+
+        let item: { start: string | null | undefined, end: string | null, created: string } | null = null
+
+        if (itemType === 'project') {
+            const project = projects.find(p => p.id === itemId)
+            if (project) {
+                item = { start: project.expected_start_date, end: project.deadline, created: project.created_at }
+            }
+        } else {
+            // Find task inside projects
+            for (const p of projects) {
+                const task = p.tasks?.find(t => t.id === itemId)
+                if (task) {
+                    item = { start: task.start_date, end: task.due_date, created: task.created_at }
+                    break
+                }
+            }
+        }
+
+        if (!item) return
 
         setIsDragging(true)
         setDragType(type)
-        setDragProjectId(projectId)
+        setDragItemType(itemType)
+        setDragItemId(itemId)
         setDragStartX(e.clientX)
 
-        const start = project.expected_start_date ? new Date(project.expected_start_date) : new Date(project.created_at)
-        const end = project.deadline ? new Date(project.deadline) : addDays(start, 30)
+        const start = item.start ? new Date(item.start) : new Date(item.created)
+        const end = item.end ? new Date(item.end) : addDays(start, 30) // Default logic match getPosition
 
         setDragInitialDates({ start, end })
     }
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging || !dragProjectId || !dragInitialDates || !containerRef.current) return
+        if (!isDragging || !dragItemId || !dragInitialDates || !containerRef.current || !dragItemType) return
 
         const deltaPixels = e.clientX - dragStartX
         const containerWidth = containerRef.current.offsetWidth
@@ -126,58 +147,91 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
 
         if (deltaDays === 0) return
 
+        // Calculate new dates
+        let newStart = new Date(dragInitialDates.start)
+        let newEnd = new Date(dragInitialDates.end)
+
+        if (dragType === 'move') {
+            newStart = addDays(newStart, deltaDays)
+            newEnd = addDays(newEnd, deltaDays)
+        } else if (dragType === 'resize-start') {
+            newStart = addDays(newStart, deltaDays)
+            if (differenceInDays(newEnd, newStart) < 1) newStart = addDays(newEnd, -1)
+        } else if (dragType === 'resize-end') {
+            newEnd = addDays(newEnd, deltaDays)
+            if (differenceInDays(newEnd, newStart) < 1) newEnd = addDays(newStart, 1)
+        }
+
+        const newStartIso = newStart.toISOString()
+        const newEndIso = newEnd.toISOString()
+
         setProjects(prev => prev.map(p => {
-            if (p.id !== dragProjectId) return p
-
-            let newStart = new Date(dragInitialDates.start)
-            let newEnd = new Date(dragInitialDates.end)
-
-            if (dragType === 'move') {
-                newStart = addDays(newStart, deltaDays)
-                newEnd = addDays(newEnd, deltaDays)
-            } else if (dragType === 'resize-start') {
-                newStart = addDays(newStart, deltaDays)
-                // Prevent start > end
-                if (differenceInDays(newEnd, newStart) < 1) newStart = addDays(newEnd, -1)
-            } else if (dragType === 'resize-end') {
-                newEnd = addDays(newEnd, deltaDays)
-                // Prevent end < start
-                if (differenceInDays(newEnd, newStart) < 1) newEnd = addDays(newStart, 1)
+            if (dragItemType === 'project' && p.id === dragItemId) {
+                return {
+                    ...p,
+                    expected_start_date: newStartIso,
+                    deadline: newEndIso
+                }
+            } else if (dragItemType === 'task') {
+                return {
+                    ...p,
+                    tasks: p.tasks?.map(t => {
+                        if (t.id === dragItemId) {
+                            return {
+                                ...t,
+                                start_date: newStartIso,
+                                due_date: newEndIso
+                            }
+                        }
+                        return t
+                    })
+                }
             }
-
-            return {
-                ...p,
-                expected_start_date: newStart.toISOString(),
-                deadline: newEnd.toISOString()
-            }
+            return p
         }))
     }
 
     const handleMouseUp = async () => {
-        if (!isDragging || !dragProjectId) return
+        if (!isDragging || !dragItemId || !dragItemType) return
 
-        const project = projects.find(p => p.id === dragProjectId)
-        if (project) {
-            // Save to DB
-            const { error } = await supabase
-                .from('projects')
-                .update({
-                    expected_start_date: project.expected_start_date,
-                    deadline: project.deadline
-                })
-                .eq('id', dragProjectId)
+        if (dragItemType === 'project') {
+            const project = projects.find(p => p.id === dragItemId)
+            if (project) {
+                const { error } = await supabase
+                    .from('projects')
+                    .update({
+                        expected_start_date: project.expected_start_date,
+                        deadline: project.deadline
+                    })
+                    .eq('id', dragItemId)
+                if (error) console.error('Update failed', error)
+                else router.refresh()
+            }
+        } else {
+            // Find the task
+            let taskToUpdate: Task | undefined
+            for (const p of projects) {
+                taskToUpdate = p.tasks?.find(t => t.id === dragItemId)
+                if (taskToUpdate) break
+            }
 
-            if (error) {
-                console.error('Failed to update project dates:', error)
-                // Revert or show toast (omitted for brevity)
-            } else {
-                router.refresh()
+            if (taskToUpdate) {
+                const { error } = await supabase
+                    .from('tasks')
+                    .update({
+                        start_date: taskToUpdate.start_date,
+                        due_date: taskToUpdate.due_date
+                    })
+                    .eq('id', dragItemId)
+                if (error) console.error('Task Update failed', error)
+                else router.refresh()
             }
         }
 
         setIsDragging(false)
         setDragType(null)
-        setDragProjectId(null)
+        setDragItemType(null)
+        setDragItemId(null)
         setDragInitialDates(null)
     }
 
@@ -277,21 +331,21 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
                                         {/* Project Bar */}
                                         {style && (
                                             <div
-                                                className={`absolute top-2 h-8 rounded-md shadow-lg transition-shadow border cursor-move group/bar ${statusColors[project.status as keyof typeof statusColors] || 'bg-gray-600'} ${isDragging && dragProjectId === project.id ? 'ring-2 ring-white z-30' : 'z-10'}`}
+                                                className={`absolute top-2 h-8 rounded-md shadow-lg transition-shadow border cursor-move group/bar ${statusColors[project.status as keyof typeof statusColors] || 'bg-gray-600'} ${isDragging && dragItemType === 'project' && dragItemId === project.id ? 'ring-2 ring-white z-30' : 'z-10'}`}
                                                 style={style}
-                                                onMouseDown={(e) => handleMouseDown(e, project.id, 'move')}
+                                                onMouseDown={(e) => handleMouseDown(e, project.id, 'project', 'move')}
                                             >
                                                 {/* Resize Handles */}
                                                 <div
                                                     className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-l-md z-20"
-                                                    onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-start')}
+                                                    onMouseDown={(e) => handleMouseDown(e, project.id, 'project', 'resize-start')}
                                                 />
                                                 <div className="px-2 py-1 text-xs text-white truncate pointer-events-none w-full h-full flex items-center">
                                                     {project.name}
                                                 </div>
                                                 <div
                                                     className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-r-md z-20"
-                                                    onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-end')}
+                                                    onMouseDown={(e) => handleMouseDown(e, project.id, 'project', 'resize-end')}
                                                 />
                                             </div>
                                         )}
@@ -300,7 +354,7 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
 
                                 {/* Tasks Sub-rows */}
                                 {isExpanded && project.tasks && project.tasks.map(task => {
-                                    const taskStyle = getPosition(task.created_at, task.due_date, task.created_at) // Assuming task starts at created_at
+                                    const taskStyle = getPosition(task.start_date || null, task.due_date, task.created_at)
                                     return (
                                         <div key={task.id} className="flex group hover:bg-white/[0.02] transition-colors relative h-8 bg-black/20">
                                             <div className="w-64 p-2 pl-12 border-r border-white/10 shrink-0 z-10 bg-[#161b28] sticky left-0 flex items-center">
@@ -318,12 +372,24 @@ export default function ProjectTimeline({ projects: initialProjects }: { project
 
                                                 {taskStyle && (
                                                     <div
-                                                        className="absolute top-1.5 h-5 rounded-sm bg-cyan-600/50 border border-cyan-500/50 hover:bg-cyan-600 transition-colors"
+                                                        className={`absolute top-1.5 h-5 rounded-sm border transition-shadow cursor-move group/taskbar ${isDragging && dragItemType === 'task' && dragItemId === task.id ? 'ring-1 ring-white z-30 bg-cyan-600' : 'bg-cyan-600/50 border-cyan-500/50 hover:bg-cyan-600'}`}
                                                         style={taskStyle}
+                                                        onMouseDown={(e) => handleMouseDown(e, task.id, 'task', 'move')}
                                                     >
-                                                        <div className="px-2 text-[10px] text-cyan-100 truncate w-full h-full flex items-center">
+                                                        {/* Resize Handles for Tasks */}
+                                                        <div
+                                                            className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-white/40 z-20"
+                                                            onMouseDown={(e) => handleMouseDown(e, task.id, 'task', 'resize-start')}
+                                                        />
+
+                                                        <div className="px-2 text-[10px] text-cyan-100 truncate w-full h-full flex items-center pointer-events-none">
                                                             {task.status}
                                                         </div>
+
+                                                        <div
+                                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-white/40 z-20"
+                                                            onMouseDown={(e) => handleMouseDown(e, task.id, 'task', 'resize-end')}
+                                                        />
                                                     </div>
                                                 )}
                                             </div>

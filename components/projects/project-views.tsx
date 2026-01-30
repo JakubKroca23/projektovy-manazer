@@ -20,6 +20,7 @@ interface Project {
         status: string
         due_date: string | null
         created_at: string
+        start_date?: string | null
     }[]
 }
 

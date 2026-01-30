@@ -24,7 +24,8 @@ export default async function ProjektyPage() {
         title,
         status,
         due_date,
-        created_at
+        created_at,
+        start_date
       )
     `)
         .order('created_at', { ascending: false })
