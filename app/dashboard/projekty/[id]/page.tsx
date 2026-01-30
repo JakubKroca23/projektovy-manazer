@@ -81,11 +81,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     </div>
                     <p className="text-gray-400 max-w-2xl">{project.description}</p>
                 </div>
+                import ProjectActions from '@/components/projects/project-actions'
+
+                // ... (inside component)
                 <div className="flex space-x-3">
-                    {/* Future: Edit button */}
-                    <button className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                        <MoreHorizontal className="w-5 h-5" />
-                    </button>
+                    <ProjectActions projectId={project.id} projectName={project.name} />
                 </div>
             </div>
 

@@ -10,7 +10,6 @@ export default async function DashboardPage() {
     const { count: projectsCount } = await supabase
         .from('projects')
         .select('*', { count: 'exact', head: true })
-        .or(`created_by.eq.${user?.id},id.in.(select project_id from project_members where user_id = ${user?.id})`)
 
     // Get tasks count
     const { count: tasksCount } = await supabase
@@ -28,8 +27,7 @@ export default async function DashboardPage() {
     // Get recent projects
     const { data: recentProjects } = await supabase
         .from('projects')
-        .select('*, profiles!created_by(full_name)')
-        .or(`created_by.eq.${user?.id},id.in.(select project_id from project_members where user_id = ${user?.id})`)
+        .select('*, profiles:created_by(full_name)')
         .order('created_at', { ascending: false })
         .limit(5)
 

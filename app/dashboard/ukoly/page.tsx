@@ -14,7 +14,6 @@ export default async function UkolyPage() {
       projects(name),
       profiles:assigned_to(full_name)
     `)
-        .or(`assigned_to.eq.${user?.id},project_id.in.(select id from projects where created_by = ${user?.id})`)
         .order('due_date', { ascending: true })
 
     const priorityIcons = {
