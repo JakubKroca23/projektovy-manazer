@@ -105,7 +105,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 <div className="flex items-center space-x-3">
                     <GenerateJobsButton projectId={project.id} quantity={project.quantity} />
                     <Link
-                        href={`/dashboard/projekty/${params.id}/zakazky/nova`}
+                        href={`/dashboard/projekty/${id}/zakazky/nova`}
                         className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white text-sm font-medium rounded-lg shadow-lg"
                     >
                         <Plus className="w-4 h-4" />

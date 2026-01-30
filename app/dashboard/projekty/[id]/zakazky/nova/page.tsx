@@ -2,12 +2,16 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Save } from 'lucide-react'
 
-export default function NovaZakazkaPage({ params }: { params: { id: string } }) {
+export default function NovaZakazkaPage() {
     const router = useRouter()
+    const params = useParams()
+    const projectId = params.id as string
+
     const supabase = createClient()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -19,7 +23,7 @@ export default function NovaZakazkaPage({ params }: { params: { id: string } }) 
 
         const formData = new FormData(e.currentTarget)
         const data = {
-            project_id: params.id,
+            project_id: projectId,
             name: formData.get('name') as string,
             order_number: formData.get('order_number') as string,
             order_date: formData.get('order_date') || null,
@@ -38,7 +42,7 @@ export default function NovaZakazkaPage({ params }: { params: { id: string } }) 
             setError(insertError.message)
             setLoading(false)
         } else {
-            router.push(`/dashboard/projekty/${params.id}`)
+            router.push(`/dashboard/projekty/${projectId}`)
             router.refresh()
         }
     }
@@ -46,7 +50,7 @@ export default function NovaZakazkaPage({ params }: { params: { id: string } }) 
     return (
         <div className="max-w-3xl mx-auto pb-12">
             <div className="mb-8">
-                <Link href={`/dashboard/projekty/${params.id}`} className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-4 transition-colors">
+                <Link href={`/dashboard/projekty/${projectId}`} className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-4 transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Zpět na detail projektu
                 </Link>
