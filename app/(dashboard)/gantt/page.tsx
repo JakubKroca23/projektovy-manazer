@@ -1,7 +1,7 @@
 'use client'
 
-import { getTasks, getProjects } from "@/lib/actions/tasks"
-import { getProjects as getAllProjects } from "@/lib/actions/projects"
+import { getTasks } from "@/lib/actions/tasks"
+import { getProjects } from "@/lib/actions/projects"
 import { GanttChart } from "@/components/gantt/gantt-chart"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -17,7 +17,7 @@ export default function GanttPage() {
     const loadData = async () => {
       try {
         const tasksData = await getTasks()
-        const projectsData = await getAllProjects()
+        const projectsData = await getProjects()
         setTasks(tasksData || [])
         setProjects(projectsData || [])
       } catch (error) {
