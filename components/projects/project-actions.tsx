@@ -5,7 +5,7 @@ import { MoreHorizontal, Trash2, Edit, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-export default function ProjectActions({ projectId, projectName }: { projectId: string, projectName: string }) {
+export default function ProjectActions({ projectId, projectName, isOwner = false }: { projectId: string, projectName: string, isOwner?: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const router = useRouter()
@@ -29,6 +29,8 @@ export default function ProjectActions({ projectId, projectName }: { projectId: 
         }
     }
 
+    if (!isOwner) return null
+
     return (
         <div className="relative">
             <button
@@ -45,28 +47,33 @@ export default function ProjectActions({ projectId, projectName }: { projectId: 
                         onClick={() => setIsOpen(false)}
                     />
                     <div className="absolute right-0 mt-2 w-48 bg-[#1a1f2e] border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
-                        <button
-                            onClick={() => {
-                                setIsOpen(false)
-                                router.push(`/dashboard/projekty/${projectId}/upravit`)
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center space-x-2"
-                        >
-                            <Edit className="w-4 h-4" />
-                            <span>Upravit projekt</span>
-                        </button>
-                        <button
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center space-x-2"
-                        >
-                            {isDeleting ? (
-                                <span className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                                <Trash2 className="w-4 h-4" />
-                            )}
-                            <span>{isDeleting ? 'Mazání...' : 'Smazat projekt'}</span>
-                        </button>
+                        {isOwner && (
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false)
+                                    router.push(`/dashboard/projekty/${projectId}/upravit`)
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center space-x-2"
+                            >
+                                <Edit className="w-4 h-4" />
+                                <span>Upravit projekt</span>
+                            </button>
+                        )}
+
+                        {isOwner && (
+                            <button
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center space-x-2 border-t border-white/5"
+                            >
+                                {isDeleting ? (
+                                    <span className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                )}
+                                <span>{isDeleting ? 'Mazání...' : 'Smazat projekt'}</span>
+                            </button>
+                        )}
                     </div>
                 </>
             )}

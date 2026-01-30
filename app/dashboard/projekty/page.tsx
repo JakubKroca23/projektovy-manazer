@@ -15,6 +15,7 @@ export default async function ProjektyPage() {
             name,
             status,
             created_at,
+            created_by,
             expected_start_date,
             deadline,
             tasks (
@@ -80,7 +81,11 @@ export default async function ProjektyPage() {
             </div>
 
             {/* Content View Switcher */}
-            <ProjectViews projects={(projects || []) as any[]} services={(services || []) as any[]} />
+            <ProjectViews
+                projects={(projects || []) as any[]}
+                services={(services || []) as any[]}
+                currentUserId={user?.id}
+            />
         </div>
     )
 }

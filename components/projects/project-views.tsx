@@ -12,6 +12,7 @@ interface Project {
     expected_start_date: string | null
     deadline: string | null
     created_at: string
+    created_by?: string
     customer?: string
     project_manager?: string
     tasks?: {
@@ -34,7 +35,7 @@ interface Project {
     }[]
 }
 
-export default function ProjectViews({ projects, services = [] }: { projects: Project[], services?: Service[] }) {
+export default function ProjectViews({ projects, services = [], currentUserId }: { projects: Project[], services?: Service[], currentUserId?: string }) {
     const [view, setView] = useState<'timeline' | 'table'>('timeline')
 
     return (

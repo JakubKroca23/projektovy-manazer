@@ -9,6 +9,11 @@ import GenerateJobsButton from '@/components/projects/generate-jobs-button'
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
 
+    // Get current user
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const currentUserId = user?.id
+
     // Basic validation of UUID format to prevent Postgres errors
     const isValidUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)
 
@@ -24,8 +29,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </div>
         )
     }
-
-    const supabase = await createClient()
 
     const { data: project, error } = await supabase
         .from('projects')
@@ -77,6 +80,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         return <div className="p-8 text-center text-gray-400">Projekt nenalezen.</div>
     }
 
+    // Check permissions
+    const isOwner = project.created_by === currentUserId || project.project_members.some((m: any) => m.profiles.id === currentUserId && (m.role === 'owner' || m.role === 'admin'))
+
     // Stats
     const totalTasks = project.tasks.length
     const completedTasks = project.tasks.filter((t: any) => t.status === 'done').length
@@ -111,7 +117,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                         <Plus className="w-4 h-4" />
                         <span>Nová zakázka</span>
                     </Link>
-                    <ProjectActions projectId={project.id} projectName={project.name} />
+                    <ProjectActions projectId={project.id} projectName={project.name} isOwner={isOwner} />
                 </div>
             </div>
 
