@@ -42,6 +42,7 @@ export default function UpravitProjektPage() {
         vehicle_brand: '',
         bodies: [] as BodyItem[],
         axlePositions: [] as number[],
+        chassisLength: 800, // Default visualization length
         accessories: [] as AccessoryItem[]
     })
 
@@ -62,6 +63,18 @@ export default function UpravitProjektPage() {
             }
 
             if (data) {
+                // Parse axle_positions logic to handle both array (legacy) and object (new)
+                let axles: number[] = []
+                let length = 800
+
+                const rawAxles = data.axle_positions as any
+                if (Array.isArray(rawAxles)) {
+                    axles = rawAxles
+                } else if (rawAxles && typeof rawAxles === 'object') {
+                    axles = rawAxles.positions || []
+                    length = rawAxles.chassisLength || 800
+                }
+
                 // Map DB data to form state (handling nulls)
                 setFormData({
                     name: data.name || '',
@@ -86,7 +99,8 @@ export default function UpravitProjektPage() {
                     vehicle_config: data.vehicle_config || '',
                     vehicle_brand: data.vehicle_brand || '',
                     bodies: data.bodies ? (data.bodies as unknown as BodyItem[]) : [],
-                    axlePositions: data.axle_positions ? (data.axle_positions as unknown as number[]) : [],
+                    axlePositions: axles,
+                    chassisLength: length,
                     accessories: data.accessories ? (data.accessories as unknown as AccessoryItem[]) : []
                 })
             }
@@ -107,7 +121,8 @@ export default function UpravitProjektPage() {
             vehicle_config: spec.config,
             vehicle_brand: spec.brand,
             bodies: spec.bodies,
-            axlePositions: spec.axlePositions || []
+            axlePositions: spec.axlePositions || [],
+            chassisLength: spec.chassisLength || 800
         }))
     }
 
@@ -115,6 +130,12 @@ export default function UpravitProjektPage() {
         e.preventDefault()
         setSaving(true)
         setError(null)
+
+        // Pack chassisLength into axle_positions JSONB
+        const axleData = {
+            positions: formData.axlePositions,
+            chassisLength: formData.chassisLength
+        }
 
         const { error } = await supabase
             .from('projects')
@@ -141,7 +162,7 @@ export default function UpravitProjektPage() {
                 vehicle_config: formData.vehicle_config || null,
                 vehicle_brand: formData.vehicle_brand || null,
                 bodies: formData.bodies, // JSONB
-                axle_positions: formData.axlePositions, // JSONB
+                axle_positions: axleData, // JSONB Store Object
                 accessories: formData.accessories // JSONB
             })
             .eq('id', id)
@@ -214,7 +235,8 @@ export default function UpravitProjektPage() {
                                 config: formData.vehicle_config,
                                 brand: formData.vehicle_brand,
                                 bodies: formData.bodies,
-                                axlePositions: formData.axlePositions
+                                axlePositions: formData.axlePositions,
+                                chassisLength: formData.chassisLength
                             }}
                             onChange={handleVehicleChange}
                         />
