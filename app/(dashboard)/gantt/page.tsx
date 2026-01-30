@@ -9,8 +9,8 @@ import { Calendar, Filter } from "lucide-react"
 import { useState, useEffect } from "react"
 
 export default function GanttPage() {
-  const [tasks, setTasks] = useState([])
-  const [projects, setProjects] = useState([])
+  const [tasks, setTasks] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
