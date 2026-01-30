@@ -155,7 +155,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Aktivní zakázky</span>
                 <span className="font-medium">
-                  {project.contracts.filter(c => c.status === "IN_PROGRESS").length}
+                  {project.contracts.filter((c: any) => c.status === "IN_PROGRESS").length}
                 </span>
               </div>
             </CardContent>
