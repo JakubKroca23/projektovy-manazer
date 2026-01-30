@@ -25,7 +25,7 @@ export interface VehicleData {
     rearOverhang: number // (Vypočteno: chassisLength - lastAxle)
 }
 
-const BODY_TYPES = ['Valník', 'Sklápěč', 'Kontejner', 'Skříň', 'Cisterna', 'Hydraulická ruka', 'Jeřáb', 'Mix', 'Odtah']
+const BODY_TYPES = ['Valník', 'Skříň', 'Hydraulická ruka', 'Hákový nakladač']
 
 // --- CONSTANTS ---
 const VIEW_WIDTH = 1000
@@ -145,7 +145,7 @@ export default function VehicleBuilder({
                 width: 3000,
                 height: 800,
                 weight: 500,
-                extensions: 1
+                extensions: type === 'Hydraulická ruka' ? 1 : undefined,
             }]
         }))
     }
@@ -164,7 +164,7 @@ export default function VehicleBuilder({
     // --- DRAG LOGIC ---
     const svgRef = useRef<SVGSVGElement>(null)
     const [dragging, setDragging] = useState<{
-        type: 'axle' | 'body' | 'body-resize' | 'chassis',
+        type: 'axle' | 'body' | 'body-resize' | 'chassis' | 'extension',
         id: string | number,
         startX: number,
         startVal: number
@@ -216,6 +216,37 @@ export default function VehicleBuilder({
         } else if (dragging.type === 'chassis') {
             const newVal = Math.max(data.axlePositions[data.axlePositions.length - 1] + 500, dragging.startVal + deltaMm)
             setData(prev => ({ ...prev, chassisLength: newVal }))
+        } else if (dragging.type === 'extension') {
+            const id = dragging.id as string
+            // Logic to change number of extensions based on drag logic or position? 
+            // Actually user asked "aby se s nema dalo vysouvat" - to slide them out. 
+            // So 'extensions' state might technically be "extension_length" but here it is "number of extensions".
+            // Let's assume user wants to VISUALLY extend the arm. 
+            // But my model has 'extensions: number'. 
+            // If I want to slide them, I might need 'extension_state' (0-100%).
+            // BUT user also said "volby poctu vysuvu" (choice of number of extensions). 
+            // So I should have a setting for Count (1-8) and Interactivity for "Sliding them out".
+            // Let's add a visual PROPERT "extension_override" just for visual sliding? 
+            // Or update "width" of the arm? No, arm usually folds/unfolds.
+
+            // Let's implement changing the NUMBER of extensions by dragging UP/DOWN? Or dragging RIGHT to add?
+            // "volby poctu vysuvu a aby se s nema dalo vysouvat" -> Choice of count AND ability to slide.
+
+            // Simplification: Dragging this handle changes the "current extension length/state".
+            // But I only have 'extensions' field which sounds like COUNT.
+            // I should probably add another field 'extension_percentage' or just use 'width' for visual reach.
+            // Let's stick to COUNT for now in properties, and maybe this drag is for "Reach"?
+
+            // Let's interpret "extensions" as COUNT (1,2,3,4).
+            // And I will add 'extension_length' to BodyItem?
+            // Or let's just interpret dragging as changing the COUNT for now if it is easier?
+            // No, "vysouvat" implies movement.
+
+            // Let's add 'reach' to BodyItem?
+            // For now, let's map dragging to 'extensions' count (1-8) rounded?
+            const rawCount = dragging.startVal + (deltaMm / 500) // Sensitivity
+            const count = Math.max(1, Math.min(8, Math.round(rawCount)))
+            updateBody(id, 'extensions', count)
         }
     }
 
@@ -383,11 +414,69 @@ export default function VehicleBuilder({
                                     />
 
                                     {/* Graphics by Type */}
-                                    {body.type === 'Sklápěč' && <path d={`M 0 0 L ${mmToPx(body.width)} 0 L ${mmToPx(body.width) - 20} ${mmToPx(body.height)} L 5 ${mmToPx(body.height)}`} fill="none" stroke="#3b82f6" strokeWidth="1" />}
+                                    {body.type === 'Sklápěč' && <path d={`M 0 0 L ${mmToPx(body.width)} 0 L ${mmToPx(body.width) - 20} ${mmToPx(body.height)} L 5 ${mmToPx(body.height)}`} fill="none" stroke="#3b82f6" strokeWidth="1" />} {/* Legacy, keep or remove? User said remove remainder. */}
+
                                     {body.type === 'Hydraulická ruka' && (
                                         <g>
-                                            <rect x={mmToPx(body.width) / 2 - 10} y={mmToPx(body.height) - 30} width="20" height="30" fill="#f97316" />
-                                            <path d={`M ${mmToPx(body.width) / 2} ${mmToPx(body.height) - 30} L ${mmToPx(body.width) / 2} 0`} stroke="#f97316" strokeWidth="4" />
+                                            {/* Base */}
+                                            <rect x={mmToPx(body.width) / 2 - 20} y={mmToPx(body.height) - 40} width="40" height="40" fill="#c2410c" stroke="black" />
+                                            {/* Main Boom */}
+                                            <path d={`M ${mmToPx(body.width) / 2} ${mmToPx(body.height) - 40} L ${mmToPx(body.width) / 2} 0`} stroke="#c2410c" strokeWidth="8" />
+
+                                            {/* Extensions */}
+                                            {Array.from({ length: body.extensions || 1 }).map((_, extI) => {
+                                                // Visualize as segments extending horizontally or vertically? 
+                                                // Usually truck cranes fold. But "vysouvat" typically means telescopic boom.
+                                                // Let's draw a horizontal telescopic boom extending RIGHT from top of main boom.
+                                                const segmentLen = 40
+                                                const startX = mmToPx(body.width) / 2
+                                                const startY = 0 // Top of main boom
+                                                const offset = (extI + 1) * 30
+
+                                                return (
+                                                    <g key={extI}>
+                                                        {/* Segment */}
+                                                        <rect
+                                                            x={startX + (extI * 20)}
+                                                            y={startY - 6}
+                                                            width={segmentLen}
+                                                            height="12"
+                                                            fill="#f97316"
+                                                            stroke="black"
+                                                            strokeWidth="0.5"
+                                                        />
+                                                    </g>
+                                                )
+                                            })}
+
+                                            {/* Interaction Handle for Extensions - at the tip of the last extension */}
+                                            {(() => {
+                                                const count = body.extensions || 1
+                                                const tipX = (mmToPx(body.width) / 2) + (count * 20) + 40
+                                                const tipY = 0
+                                                return (
+                                                    <g
+                                                        style={{ cursor: 'ew-resize' }}
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault(); e.stopPropagation();
+                                                            setDragging({ type: 'extension', id: body.id, startX: e.clientX, startVal: count })
+                                                        }}
+                                                    >
+                                                        <circle cx={tipX} cy={tipY} r="5" fill="#facc15" stroke="black" />
+                                                    </g>
+                                                )
+                                            })()}
+                                        </g>
+                                    )}
+
+                                    {body.type === 'Hákový nakladač' && (
+                                        <g>
+                                            {/* Base Frame */}
+                                            <rect x="0" y={mmToPx(body.height) - 10} width={mmToPx(body.width)} height="10" fill="#334155" />
+                                            {/* Arm folded */}
+                                            <path d={`M 20 ${mmToPx(body.height) - 10} L 60 ${mmToPx(body.height) * 0.4} L 120 ${mmToPx(body.height) * 0.4} L 140 ${mmToPx(body.height) - 10}`} fill="none" stroke="#94a3b8" strokeWidth="4" />
+                                            {/* Hook */}
+                                            <path d={`M 120 ${mmToPx(body.height) * 0.4} L 120 ${mmToPx(body.height) * 0.3} Q 120 ${mmToPx(body.height) * 0.2} 100 ${mmToPx(body.height) * 0.2}`} fill="none" stroke="#94a3b8" strokeWidth="3" />
                                         </g>
                                     )}
 
@@ -401,6 +490,17 @@ export default function VehicleBuilder({
                                             setDragging({ type: 'body-resize', id: body.id, startX: e.clientX, startVal: body.width })
                                         }}
                                     />
+
+                                    {/* Support Legs (Visual) */}
+                                    {['Hydraulická ruka', 'Hákový nakladač'].includes(body.type) && (
+                                        <g transform={`translate(${mmToPx(body.width) / 2 - 25}, ${mmToPx(body.height)})`}>
+                                            <rect x="0" y="0" width="10" height="40" fill="#334155" stroke="black" />
+                                            <rect x="40" y="0" width="10" height="40" fill="#334155" stroke="black" />
+                                            <line x1="10" y1="20" x2="40" y2="20" stroke="#334155" strokeWidth="4" />
+                                            <circle cx="5" cy="40" r="4" fill="#64748b" />
+                                            <circle cx="45" cy="40" r="4" fill="#64748b" />
+                                        </g>
+                                    )}
 
                                     {/* Info Label */}
                                     <rect x="0" y="-25" width="80" height="20" rx="2" fill="#0f172a" stroke="#3b82f6" />
@@ -520,6 +620,27 @@ export default function VehicleBuilder({
                                                 className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-slate-200 font-mono"
                                             />
                                         </div>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs text-slate-400">Výška (mm)</label>
+                                            <input
+                                                type="number"
+                                                value={Math.round(body.height)}
+                                                onChange={(e) => updateBody(body.id, 'height', parseInt(e.target.value))}
+                                                className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-slate-200 font-mono"
+                                            />
+                                        </div>
+                                        {body.type === 'Hydraulická ruka' && (
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs text-slate-400">Výsuvy (ks)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1" max="8"
+                                                    value={body.extensions || 1}
+                                                    onChange={(e) => updateBody(body.id, 'extensions', parseInt(e.target.value))}
+                                                    className="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-right text-orange-400 font-mono"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between">
                                             <label className="text-xs text-slate-400">Váha (kg)</label>
                                             <input

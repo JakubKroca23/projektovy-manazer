@@ -122,18 +122,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </div>
             </div>
 
-// Make sure VehicleBuilder is imported at top. (It is not!, wait, check line 2/9 in previous view_file of project detail? No, it wasn't. I need to add import first, but I can do it in separate view or just assume... wait, I need to check imports first.)
-// Actually, let's look at the file provided in step 68.
-// Imports:
-// import {createClient} from '@/lib/supabase/server'
-// import {ArrowLeft, ... } from 'lucide-react'
-// import Link from 'next/link'
-// import {notFound} from 'next/navigation'
-            // import ProjectActions from '@/components/projects/project-actions'
-            // import GenerateJobsButton from '@/components/projects/generate-jobs-button'
-            // It is NOT imported. I will do 2 Replace calls. First imports, then usage.
 
-            // THIS CALL IS FOR USAGE.
             {/* Specifikace vozidla - Vykres */}
             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
