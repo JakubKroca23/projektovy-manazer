@@ -75,7 +75,14 @@ export default function NovyProjektPage() {
         }
 
         // RPC returns an object with ID
-        const projectId = (result as any).id
+        console.log('RPC Result:', result)
+        const projectId = (result as any)?.id
+
+        if (!projectId) {
+            setError('Nepodařilo se získat ID nového projektu. Zkuste to znovu.')
+            setLoading(false)
+            return
+        }
 
         router.push(`/dashboard/projekty/${projectId}`)
         router.refresh()
