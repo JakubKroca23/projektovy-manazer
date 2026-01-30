@@ -32,31 +32,38 @@ export default function NovyProjektPage() {
         const formData = new FormData(e.target as HTMLFormElement)
 
         // Construct the extra fields object from formData
+        // Helper to get value or null
+        const getVal = (key: string) => {
+            const val = formData.get(key)
+            return val && val.toString().trim() !== '' ? val : null
+        }
+
+        // Construct the extra fields object from formData
         const extraFields = {
-            op_crm: formData.get('op_crm'),
-            sector: formData.get('sector'),
-            customer: formData.get('customer'),
-            billing_company: formData.get('billing_company'),
-            delivery_address: formData.get('delivery_address'),
-            quantity: formData.get('quantity'),
-            expected_start_date: formData.get('expected_start_date'),
-            deadline: formData.get('deadline'),
-            // completion_percentage: formData.get('completion_percentage'), // Manual entry if needed
-            required_action: formData.get('required_action'),
-            note: formData.get('note'),
-            assembly_company: formData.get('assembly_company'),
-            job_description: description, // Mapping job_description to description field or separate if needed (DB has both now, we can use description for main text)
-            project_manager: formData.get('project_manager'),
-            op_opv_sro: formData.get('op_opv_sro'),
-            op_group_zakaznik: formData.get('op_group_zakaznik'),
-            ov_group_sro: formData.get('ov_group_sro'),
-            zakazka_sro: formData.get('zakazka_sro'),
-            vehicle_config: formData.get('vehicle_config'),
-            vehicle_brand: formData.get('vehicle_brand'),
-            body_type: formData.get('body_type'),
-            crane_type: formData.get('crane_type'),
-            outriggers_type: formData.get('outriggers_type'),
-            pump_type: formData.get('pump_type'),
+            op_crm: getVal('op_crm'),
+            sector: getVal('sector'),
+            customer: getVal('customer'),
+            billing_company: getVal('billing_company'),
+            delivery_address: getVal('delivery_address'),
+            quantity: getVal('quantity'),
+            expected_start_date: getVal('expected_start_date'),
+            deadline: getVal('deadline'),
+            // completion_percentage: getVal('completion_percentage'),
+            required_action: getVal('required_action'),
+            note: getVal('note'),
+            assembly_company: getVal('assembly_company'),
+            job_description: description,
+            project_manager: getVal('project_manager'),
+            op_opv_sro: getVal('op_opv_sro'),
+            op_group_zakaznik: getVal('op_group_zakaznik'),
+            ov_group_sro: getVal('ov_group_sro'),
+            zakazka_sro: getVal('zakazka_sro'),
+            vehicle_config: getVal('vehicle_config'),
+            vehicle_brand: getVal('vehicle_brand'),
+            body_type: getVal('body_type'),
+            crane_type: getVal('crane_type'),
+            outriggers_type: getVal('outriggers_type'),
+            pump_type: getVal('pump_type'),
         }
 
         // Use RPC call to bypass RLS issues
