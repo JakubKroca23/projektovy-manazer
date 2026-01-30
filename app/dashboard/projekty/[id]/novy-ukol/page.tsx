@@ -30,16 +30,14 @@ export default function NovyUkolPage({ params }: { params: Promise<{ id: string 
             return
         }
 
+        // Use RPC to bypass RLS issues
         const { error: taskError } = await supabase
-            .from('tasks')
-            .insert({
-                project_id: projectId,
-                title,
-                description,
-                priority,
-                status: 'todo',
-                due_date: dueDate ? new Date(dueDate).toISOString() : null,
-                assigned_to: user.id, // Assign to self by default
+            .rpc('create_new_task', {
+                p_project_id: projectId,
+                p_title: title,
+                p_description: description,
+                p_priority: priority,
+                p_due_date: dueDate ? new Date(dueDate).toISOString() : null,
             })
 
         if (taskError) {
