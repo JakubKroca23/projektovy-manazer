@@ -1,11 +1,75 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    const formData = new FormData(event.currentTarget);
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    // Validation
+    if (!name || !email || !password || !confirmPassword) {
+      setError("Všechna pole jsou povinná");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Hesla se neMatch");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Heslo musí mít alespoň 6 znaků");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Chyba při registraci");
+        return;
+      }
+
+      setSuccess("Účet úspěšně vytvořen! Budete přesměrováni na přihlášení...");
+      setTimeout(() => router.push("/prihlaseni"), 2000);
+    } catch (err) {
+      setError("Chyba při registraci");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -23,7 +87,18 @@ export default function RegisterPage() {
             <CardTitle>Registrace</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
+                {success}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="name">Jméno</Label>
                 <Input
@@ -32,6 +107,7 @@ export default function RegisterPage() {
                   type="text"
                   autoComplete="name"
                   placeholder="Jan Novák"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -43,6 +119,7 @@ export default function RegisterPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="vas@email.cz"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -54,6 +131,7 @@ export default function RegisterPage() {
                   type="password"
                   autoComplete="new-password"
                   placeholder="•••••••••"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -65,13 +143,14 @@ export default function RegisterPage() {
                   type="password"
                   autoComplete="new-password"
                   placeholder="•••••••••"
+                  disabled={isLoading}
                   required
                 />
               </div>
               
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Vytvořit účet
+                {isLoading ? "Vytváření účtu..." : "Vytvořit účet"}
               </Button>
             </form>
             

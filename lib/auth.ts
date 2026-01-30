@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -26,29 +27,6 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email }
         });
 
-        if (!user) {
-          return null;
-        }
-
-        // Pro MVP jednoduché heslo pro všechny uživatele
-        const passwordMatch = credentials.password === "password123";
-
-        if (!passwordMatch) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role.toString(),
-        };
-      }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        });
-
         if (!user || !user.password) {
           return null;
         }
@@ -66,7 +44,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role.toString(),
         };
       }
     })
