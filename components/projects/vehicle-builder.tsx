@@ -293,12 +293,12 @@ export default function VehicleBuilder({
             <div className="flex flex-col lg:flex-row flex-1">
 
                 {/* BLUEPRINT CANVAS */}
-                <div className="flex-1 bg-[#0f172a] relative select-none overflow-hidden min-h-[500px]">
+                <div className="flex-1 bg-white relative select-none overflow-hidden min-h-[500px]">
 
                     {/* Grid Background */}
-                    <div className="absolute inset-0 opacity-10 pointer-events-none"
+                    <div className="absolute inset-0 opacity-20 pointer-events-none"
                         style={{
-                            backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)',
+                            backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)',
                             backgroundSize: '20px 20px'
                         }}
                     ></div>
@@ -315,32 +315,39 @@ export default function VehicleBuilder({
                         onMouseLeave={handleMouseUp}
                     >
                         {/* DEFS */}
+                        {/* DEFS */}
                         <defs>
                             <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                                 <rect width="10" height="10" fill="transparent" />
-                                <line x1="0" y1="0" x2="0" y2="10" stroke="#cbd5e1" strokeWidth="1" opacity="0.1" />
+                                <line x1="0" y1="0" x2="0" y2="10" stroke="#94a3b8" strokeWidth="1" opacity="0.3" />
                             </pattern>
                             <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                                <path d="M0,0 L0,6 L9,3 z" fill="#facc15" />
+                                <path d="M0,0 L0,6 L9,3 z" fill="#000" />
                             </marker>
                             <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto" markerUnits="strokeWidth">
-                                <path d="M9,0 L9,6 L0,3 z" fill="#facc15" />
+                                <path d="M9,0 L9,6 L0,3 z" fill="#000" />
+                            </marker>
+                            <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M0,0 L0,6 L9,3 z" fill="#ef4444" />
+                            </marker>
+                            <marker id="arrow-start-red" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M9,0 L9,6 L0,3 z" fill="#ef4444" />
                             </marker>
                         </defs>
 
                         {/* --- GROUND --- */}
-                        <line x1="0" y1={GROUND_Y + 48} x2={VIEW_WIDTH} y2={GROUND_Y + 48} stroke="#475569" strokeWidth="2" />
+                        <line x1="0" y1={GROUND_Y + 48} x2={VIEW_WIDTH} y2={GROUND_Y + 48} stroke="#000" strokeWidth="2" />
 
                         {/* --- CHASSIS --- */}
                         <g>
-                            {/* Frame Line */}
+                            {/* Frame Line - Red Outline style */}
                             <path
                                 d={`M ${getX(-data.frontOverhang)} ${CHASSIS_Y} L ${getX(data.chassisLength)} ${CHASSIS_Y} L ${getX(data.chassisLength)} ${CHASSIS_Y + 25} L ${getX(-data.frontOverhang)} ${CHASSIS_Y + 25} Z`}
-                                fill="#1e293b" stroke="#94a3b8" strokeWidth="2"
+                                fill="none" stroke="#ef4444" strokeWidth="2"
                             />
                             {/* Crossmembers (visual) */}
                             {Array.from({ length: Math.floor(data.chassisLength / 1000) }).map((_, i) => (
-                                <line key={i} x1={getX(i * 1000)} y1={CHASSIS_Y} x2={getX(i * 1000)} y2={CHASSIS_Y + 25} stroke="#334155" strokeWidth="1" />
+                                <line key={i} x1={getX(i * 1000)} y1={CHASSIS_Y} x2={getX(i * 1000)} y2={CHASSIS_Y + 25} stroke="#ef4444" strokeWidth="1" opacity="0.5" />
                             ))}
 
                             {/* Chassis Resize Handle */}
@@ -352,8 +359,8 @@ export default function VehicleBuilder({
                                     setDragging({ type: 'chassis', id: 'chassis', startX: e.clientX, startVal: data.chassisLength })
                                 }}
                             >
-                                <circle r="6" fill="#facc15" stroke="black" />
-                                <path d="M-3 0 L3 0 M0 -3 L0 3" stroke="black" strokeWidth="1" />
+                                <circle r="6" fill="#ef4444" stroke="white" />
+                                <path d="M-3 0 L3 0 M0 -3 L0 3" stroke="white" strokeWidth="1" />
                             </g>
                         </g>
 
@@ -370,13 +377,13 @@ export default function VehicleBuilder({
                                     }}
                                 >
                                     {/* Vertical Centerline */}
-                                    <line x1="0" y1="-200" x2="0" y2="50" stroke="#facc15" strokeWidth="1" strokeDasharray="5 2" opacity="0.3" />
+                                    <line x1="0" y1="-200" x2="0" y2="50" stroke="#000" strokeWidth="1" strokeDasharray="5 2" opacity="0.3" />
                                     {/* Tire */}
-                                    <circle r="44" fill="#0f172a" stroke="#cbd5e1" strokeWidth="2" />
+                                    <circle r="44" fill="white" stroke="#000" strokeWidth="2" />
                                     <circle r="25" fill="none" stroke="#64748b" strokeWidth="1" strokeDasharray="4 2" />
-                                    <circle r="5" fill="#94a3b8" />
+                                    <circle r="5" fill="#000" />
                                     {/* Info */}
-                                    <text y="60" textAnchor="middle" fill="#64748b" fontSize="10" fontFamily="monospace">AXLE {i + 1}</text>
+                                    <text y="70" textAnchor="middle" fill="#000" fontSize="10" fontFamily="monospace">AXLE {i + 1}</text>
                                 </g>
                             )
                         })}
@@ -384,15 +391,15 @@ export default function VehicleBuilder({
                         {/* --- CABIN (Stylized Wireframe) --- */}
                         <g transform={`translate(${getX(-data.frontOverhang)}, ${CHASSIS_Y})`}>
                             {/* Bumper area */}
-                            <rect x="0" y="0" width="100" height="30" fill="none" stroke="#cbd5e1" strokeWidth="1" />
+                            <rect x="0" y="0" width="100" height="30" fill="none" stroke="#ef4444" strokeWidth="1" />
                             {/* Main Cab */}
-                            <path d="M 0 0 L 0 -130 L 150 -130 L 150 0" fill="none" stroke="#cbd5e1" strokeWidth="2" />
+                            <path d="M 0 0 L 0 -130 L 150 -130 L 150 0" fill="none" stroke="#ef4444" strokeWidth="2" />
                             {/* Window */}
-                            <rect x="10" y="-120" width="80" height="50" fill="url(#hatch)" stroke="#475569" />
+                            <rect x="10" y="-120" width="80" height="50" fill="url(#hatch)" stroke="#ef4444" />
                             {/* Wheel Arch */}
-                            <path d="M 110 50 Q 150 0 190 50" fill="none" stroke="#cbd5e1" strokeWidth="1" transform="translate(0, -10)" />
+                            <path d="M 110 50 Q 150 0 190 50" fill="none" stroke="#ef4444" strokeWidth="1" transform="translate(0, -10)" />
                             {/* Brand Text */}
-                            <text x="75" y="-60" textAnchor="middle" fill="#cbd5e1" fontSize="14" fontWeight="bold" opacity="0.5">{data.brand?.toUpperCase()}</text>
+                            <text x="75" y="-60" textAnchor="middle" fill="#ef4444" fontSize="14" fontWeight="bold" opacity="0.3">{data.brand?.toUpperCase()}</text>
                         </g>
 
                         {/* --- BODIES --- */}
@@ -403,8 +410,8 @@ export default function VehicleBuilder({
                                     <rect
                                         width={mmToPx(body.width)}
                                         height={mmToPx(body.height)}
-                                        fill={dragging?.id === body.id ? "rgba(59, 130, 246, 0.2)" : "url(#hatch)"}
-                                        stroke="#3b82f6"
+                                        fill={dragging?.id === body.id ? "rgba(59, 130, 246, 0.1)" : "none"}
+                                        stroke="#2563eb"
                                         strokeWidth="2"
                                         style={{ cursor: 'move' }}
                                         onMouseDown={(e) => {
@@ -419,9 +426,9 @@ export default function VehicleBuilder({
                                     {body.type === 'Hydraulická ruka' && (
                                         <g>
                                             {/* Base */}
-                                            <rect x={mmToPx(body.width) / 2 - 20} y={mmToPx(body.height) - 40} width="40" height="40" fill="#c2410c" stroke="black" />
+                                            <rect x={mmToPx(body.width) / 2 - 20} y={mmToPx(body.height) - 40} width="40" height="40" fill="white" stroke="#2563eb" />
                                             {/* Main Boom */}
-                                            <path d={`M ${mmToPx(body.width) / 2} ${mmToPx(body.height) - 40} L ${mmToPx(body.width) / 2} 0`} stroke="#c2410c" strokeWidth="8" />
+                                            <path d={`M ${mmToPx(body.width) / 2} ${mmToPx(body.height) - 40} L ${mmToPx(body.width) / 2} 0`} stroke="#2563eb" strokeWidth="8" />
 
                                             {/* Extensions */}
                                             {Array.from({ length: body.extensions || 1 }).map((_, extI) => {
@@ -441,9 +448,9 @@ export default function VehicleBuilder({
                                                             y={startY - 6}
                                                             width={segmentLen}
                                                             height="12"
-                                                            fill="#f97316"
-                                                            stroke="black"
-                                                            strokeWidth="0.5"
+                                                            fill="white"
+                                                            stroke="#2563eb"
+                                                            strokeWidth="1"
                                                         />
                                                     </g>
                                                 )
@@ -472,11 +479,11 @@ export default function VehicleBuilder({
                                     {body.type === 'Hákový nakladač' && (
                                         <g>
                                             {/* Base Frame */}
-                                            <rect x="0" y={mmToPx(body.height) - 10} width={mmToPx(body.width)} height="10" fill="#334155" />
+                                            <rect x="0" y={mmToPx(body.height) - 10} width={mmToPx(body.width)} height="10" fill="white" stroke="#2563eb" />
                                             {/* Arm folded */}
-                                            <path d={`M 20 ${mmToPx(body.height) - 10} L 60 ${mmToPx(body.height) * 0.4} L 120 ${mmToPx(body.height) * 0.4} L 140 ${mmToPx(body.height) - 10}`} fill="none" stroke="#94a3b8" strokeWidth="4" />
+                                            <path d={`M 20 ${mmToPx(body.height) - 10} L 60 ${mmToPx(body.height) * 0.4} L 120 ${mmToPx(body.height) * 0.4} L 140 ${mmToPx(body.height) - 10}`} fill="none" stroke="#2563eb" strokeWidth="2" />
                                             {/* Hook */}
-                                            <path d={`M 120 ${mmToPx(body.height) * 0.4} L 120 ${mmToPx(body.height) * 0.3} Q 120 ${mmToPx(body.height) * 0.2} 100 ${mmToPx(body.height) * 0.2}`} fill="none" stroke="#94a3b8" strokeWidth="3" />
+                                            <path d={`M 120 ${mmToPx(body.height) * 0.4} L 120 ${mmToPx(body.height) * 0.3} Q 120 ${mmToPx(body.height) * 0.2} 100 ${mmToPx(body.height) * 0.2}`} fill="none" stroke="#2563eb" strokeWidth="2" />
                                         </g>
                                     )}
 
@@ -494,18 +501,18 @@ export default function VehicleBuilder({
                                     {/* Support Legs (Visual) */}
                                     {['Hydraulická ruka', 'Hákový nakladač'].includes(body.type) && (
                                         <g transform={`translate(${mmToPx(body.width) / 2 - 25}, ${mmToPx(body.height)})`}>
-                                            <rect x="0" y="0" width="10" height="40" fill="#334155" stroke="black" />
-                                            <rect x="40" y="0" width="10" height="40" fill="#334155" stroke="black" />
-                                            <line x1="10" y1="20" x2="40" y2="20" stroke="#334155" strokeWidth="4" />
-                                            <circle cx="5" cy="40" r="4" fill="#64748b" />
-                                            <circle cx="45" cy="40" r="4" fill="#64748b" />
+                                            <rect x="0" y="0" width="10" height="40" fill="white" stroke="#2563eb" />
+                                            <rect x="40" y="0" width="10" height="40" fill="white" stroke="#2563eb" />
+                                            <line x1="10" y1="20" x2="40" y2="20" stroke="#2563eb" strokeWidth="2" />
+                                            <circle cx="5" cy="40" r="4" fill="#cbd5e1" stroke="black" />
+                                            <circle cx="45" cy="40" r="4" fill="#cbd5e1" stroke="black" />
                                         </g>
                                     )}
 
                                     {/* Info Label */}
-                                    <rect x="0" y="-25" width="80" height="20" rx="2" fill="#0f172a" stroke="#3b82f6" />
-                                    <text x="40" y="-12" textAnchor="middle" fill="#e2e8f0" fontSize="10">{body.type}</text>
-                                    <text x={mmToPx(body.width) / 2} y={mmToPx(body.height) / 2} textAnchor="middle" fill="#3b82f6" opacity="0.3" fontSize="24" fontWeight="bold">{(body.width / 1000).toFixed(1)}m</text>
+                                    <rect x="0" y="-25" width="80" height="20" rx="0" fill="white" stroke="#2563eb" strokeWidth="1" />
+                                    <text x="40" y="-12" textAnchor="middle" fill="#2563eb" fontSize="10" fontWeight="bold">{body.type}</text>
+                                    <text x={mmToPx(body.width) / 2} y={mmToPx(body.height) / 2} textAnchor="middle" fill="#2563eb" opacity="1" fontSize="24" fontWeight="bold">{(body.width / 1000).toFixed(1)}m</text>
                                 </g>
                             </g>
                         ))}
@@ -521,11 +528,11 @@ export default function VehicleBuilder({
 
                                 return (
                                     <g key={`dim-${i}`}>
-                                        <line x1={getX(prev)} y1={y} x2={getX(pos)} y2={y} stroke="#facc15" strokeWidth="1" markerStart="url(#arrow-start)" markerEnd="url(#arrow)" />
-                                        <line x1={getX(prev)} y1={GROUND_Y + 50} x2={getX(prev)} y2={y + 5} stroke="#64748b" strokeWidth="1" />
-                                        <line x1={getX(pos)} y1={GROUND_Y + 50} x2={getX(pos)} y2={y + 5} stroke="#64748b" strokeWidth="1" />
-                                        <rect x={cx - 25} y={y - 8} width="50" height="16" fill="#0f172a" />
-                                        <text x={cx} y={y + 3} textAnchor="middle" fill="#facc15" fontSize="11" fontFamily="monospace" fontWeight="bold">{Math.round(pos - prev)}</text>
+                                        <line x1={getX(prev)} y1={y} x2={getX(pos)} y2={y} stroke="black" strokeWidth="1" markerStart="url(#arrow-start)" markerEnd="url(#arrow)" />
+                                        <line x1={getX(prev)} y1={GROUND_Y + 50} x2={getX(prev)} y2={y + 5} stroke="black" strokeWidth="1" />
+                                        <line x1={getX(pos)} y1={GROUND_Y + 50} x2={getX(pos)} y2={y + 5} stroke="black" strokeWidth="1" />
+                                        <rect x={cx - 25} y={y - 8} width="50" height="16" fill="white" />
+                                        <text x={cx} y={y + 3} textAnchor="middle" fill="black" fontSize="11" fontFamily="monospace" fontWeight="bold">{Math.round(pos - prev)}</text>
                                     </g>
                                 )
                             })}
@@ -540,10 +547,10 @@ export default function VehicleBuilder({
                                 const roY = GROUND_Y + 70
                                 return (
                                     <g>
-                                        <line x1={getX(lastAxle)} y1={roY} x2={getX(data.chassisLength)} y2={roY} stroke="#94a3b8" strokeWidth="1" markerEnd="url(#arrow)" markerStart="url(#arrow-start)" />
-                                        <line x1={getX(data.chassisLength)} y1={CHASSIS_Y} x2={getX(data.chassisLength)} y2={roY} stroke="#64748b" strokeWidth="1" strokeDasharray="2 2" />
-                                        <rect x={roX - 20} y={roY - 7} width="40" height="14" fill="#0f172a" />
-                                        <text x={roX} y={roY + 3} textAnchor="middle" fill="#94a3b8" fontSize="10" fontFamily="monospace">ROH {Math.round(rearOh)}</text>
+                                        <line x1={getX(lastAxle)} y1={roY} x2={getX(data.chassisLength)} y2={roY} stroke="black" strokeWidth="1" markerEnd="url(#arrow)" markerStart="url(#arrow-start)" />
+                                        <line x1={getX(data.chassisLength)} y1={CHASSIS_Y} x2={getX(data.chassisLength)} y2={roY} stroke="black" strokeWidth="1" strokeDasharray="2 2" />
+                                        <rect x={roX - 20} y={roY - 7} width="40" height="14" fill="white" />
+                                        <text x={roX} y={roY + 3} textAnchor="middle" fill="black" fontSize="10" fontFamily="monospace">ROH {Math.round(rearOh)}</text>
                                     </g>
                                 )
                             })()}
@@ -560,10 +567,10 @@ export default function VehicleBuilder({
 
                         {/* Scale visual */}
                         <g transform="translate(20, 20)">
-                            <rect width="100" height="4" fill="white" />
-                            <rect width="50" height="4" fill="black" />
-                            <text x="0" y="16" fill="white" fontSize="10">0</text>
-                            <text x="100" y="16" fill="white" fontSize="10">1m</text>
+                            <rect width="100" height="4" fill="black" />
+                            <rect width="50" height="4" fill="black" opacity="0.5" />
+                            <text x="0" y="16" fill="black" fontSize="10">0</text>
+                            <text x="100" y="16" fill="black" fontSize="10">1m</text>
                         </g>
 
                     </svg>

@@ -6,6 +6,7 @@ import ProjectActions from '@/components/projects/project-actions'
 
 import GenerateJobsButton from '@/components/projects/generate-jobs-button'
 import VehicleBuilder from '@/components/projects/vehicle-builder'
+import ProjectFiles from '@/components/projects/project-files'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -136,7 +137,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </div>
 
                 {/* Embed VehicleBuilder in ReadOnly Mode */}
-                <div className="bg-[#0f172a] border-b border-white/10">
+                <div className="bg-white border-b border-gray-200">
                     <VehicleBuilder
                         initialData={{
                             config: project.vehicle_config,
@@ -310,6 +311,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                     </div>
                 </div>
             </div>
+
+            {/* Soubory */}
+            <ProjectFiles projectId={project.id} readOnly={!isOwner} />
 
             {/* Layout Grid - Tasks & Team */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
