@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import ProjectActions from '@/components/projects/project-actions'
 
+import GenerateJobsButton from '@/components/projects/generate-jobs-button'
+
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
     const supabase = await createClient()
 
-    const { data: project } = await supabase
+    const { data: project, error } = await supabase
         .from('projects')
         .select(`
             *,
@@ -41,8 +43,20 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         .eq('id', params.id)
         .single()
 
+    if (error) {
+        return (
+            <div className="p-8 text-center bg-red-500/10 border border-red-500/20 text-red-200 rounded-lg">
+                <h2 className="text-xl font-bold mb-2">Chyba při načítání projektu</h2>
+                <p>{error.message}</p>
+                <div className="mt-4 text-sm text-gray-400">
+                    <p>Pokud vidíte chybu "relation public.jobs does not exist", spusťte migraci <code>0019_add_jobs_and_link_tasks.sql</code>.</p>
+                </div>
+            </div>
+        )
+    }
+
     if (!project) {
-        notFound()
+        return <div className="p-8 text-center text-gray-400">Projekt nenalezen.</div>
     }
 
     // Stats
@@ -59,17 +73,19 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                     <h1 className="text-3xl font-bold text-white mb-2">{project.name}</h1>
                     <div className="flex items-center space-x-4 text-sm text-gray-400">
                         <span className={`px-2 py-1 rounded-full text-xs border ${project.status === 'active' ? 'bg-green-500/20 text-green-300 border-green-500/50' :
-                                project.status === 'completed' ? 'bg-purple-500/20 text-purple-300 border-purple-500/50' :
-                                    'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                            project.status === 'completed' ? 'bg-purple-500/20 text-purple-300 border-purple-500/50' :
+                                'bg-blue-500/20 text-blue-300 border-blue-500/50'
                             }`}>
                             {project.status === 'active' ? 'Aktivní' :
                                 project.status === 'completed' ? 'Dokončeno' : 'Plánování'}
                         </span>
                         <span>Vytvořeno {new Date(project.created_at).toLocaleDateString()}</span>
+                        <span>{project.quantity} ks</span>
                     </div>
                 </div>
 
                 <div className="flex items-center space-x-3">
+                    <GenerateJobsButton projectId={project.id} quantity={project.quantity} />
                     <Link
                         href={`/dashboard/projekty/${params.id}/zakazky/nova`}
                         className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white text-sm font-medium rounded-lg shadow-lg"
@@ -130,9 +146,9 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                                         <td className="px-6 py-3 text-gray-300">{job.order_number || '-'}</td>
                                         <td className="px-6 py-3">
                                             <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium border ${job.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                    job.status === 'delivered' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                                        job.status === 'canceled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                            'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                job.status === 'delivered' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                                    job.status === 'canceled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                        'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                                 }`}>
                                                 {job.status === 'in_production' ? 'Ve výrobě' :
                                                     job.status === 'planning' ? 'Plánování' :
@@ -249,7 +265,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                         {project.tasks.slice(0, 5).map((task: any) => (
                             <div key={task.id} className="flex items-center p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
                                 <div className={`w-2 h-2 rounded-full mr-4 ${task.priority === 'urgent' ? 'bg-red-500 shadow-lg shadow-red-500/50' :
-                                        task.priority === 'high' ? 'bg-orange-500' : 'bg-blue-500'
+                                    task.priority === 'high' ? 'bg-orange-500' : 'bg-blue-500'
                                     }`} />
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-white font-medium truncate">{task.title}</h4>
@@ -264,8 +280,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
                                 </div>
                                 <div className="ml-4">
                                     <span className={`px-2 py-1 rounded text-xs font-medium border ${task.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                            task.status === 'review' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                                'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                                        task.status === 'review' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                            'bg-gray-500/10 text-gray-400 border-gray-500/20'
                                         }`}>
                                         {task.status}
                                     </span>
