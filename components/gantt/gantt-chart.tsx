@@ -1,80 +1,92 @@
-"use client";
+"use client"
 
-import { FrappeGantt, Task, ViewMode } from "react-frappe-gantt";
-import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, ChevronDown } from "lucide-react";
-import { Task as PrismaTask } from "@prisma/client";
+import { FrappeGantt, Task, ViewMode } from "react-frappe-gantt"
+import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Calendar, ChevronDown } from "lucide-react"
 
 interface GanttChartProps {
-  tasks: PrismaTask[];
-  onTaskUpdate?: (taskId: string, updates: Partial<PrismaTask>) => void;
+  tasks: any[]
+  onTaskUpdate?: (taskId: string, updates: any) => void
 }
 
 export function GanttChart({ tasks, onTaskUpdate }: GanttChartProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day)
 
   const ganttTasks = useMemo(() => {
-    return tasks.map(task => {
-      const startDate = task.startDate ? new Date(task.startDate) : new Date();
-      const endDate = task.endDate ? new Date(task.endDate) : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days default
-      
+    return tasks.map((task) => {
+      const startDate = task.start_date
+        ? new Date(task.start_date)
+        : new Date()
+      const endDate = task.end_date
+        ? new Date(task.end_date)
+        : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000) // +7 days default
+
       return new Task({
         id: task.id,
         name: task.name,
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0],
+        start: startDate.toISOString().split("T")[0],
+        end: endDate.toISOString().split("T")[0],
         progress: task.progress / 100, // Convert to 0-1 range for Frappe Gantt
         dependencies: "", // TODO: Add task dependencies when implemented
-      });
-    });
-  }, [tasks]);
+      })
+    })
+  }, [tasks])
 
   const handleDateChange = (task: Task, start: any, end: any) => {
     if (onTaskUpdate && task.id) {
       onTaskUpdate(task.id, {
-        startDate: new Date(start),
-        endDate: new Date(end),
-      });
+        start_date: new Date(start),
+        end_date: new Date(end),
+      })
     }
-  };
+  }
 
   const handleProgressChange = (task: Task, progress: number) => {
     if (onTaskUpdate && task.id) {
       onTaskUpdate(task.id, {
         progress: Math.round(progress * 100), // Convert back to 0-100 range
-      });
+      })
     }
-  };
+  }
 
   const handleTasksChange = (tasks: Task[]) => {
-    console.log("Tasks changed:", tasks);
-  };
+    console.log("Tasks changed:", tasks)
+  }
 
   const handleTaskClick = (task: Task) => {
-    console.log("Task clicked:", task);
-  };
+    console.log("Task clicked:", task)
+  }
 
   return (
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h3 className="text-lg font-semibold text-gray-900">Časová osa projektu</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Časová osa projektu
+          </h3>
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-500">
-              {tasks.length} úkolů
-            </span>
+            <span className="text-sm text-gray-500">{tasks.length} úkolů</span>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-2">
-          <label htmlFor="view-mode" className="text-sm font-medium text-gray-700">
+          <label
+            htmlFor="view-mode"
+            className="text-sm font-medium text-gray-700"
+          >
             Zobrazení:
           </label>
-          <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+          <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
@@ -119,5 +131,5 @@ export function GanttChart({ tasks, onTaskUpdate }: GanttChartProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }
