@@ -6,16 +6,15 @@ export default async function ProjektyPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Get all projects where user is creator or member
+    // Get all projects (RLS automatically filters to user's projects)
     const { data: projects } = await supabase
         .from('projects')
         .select(`
       *,
-      profiles!created_by(full_name),
+      profiles:created_by(full_name),
       project_members(count),
       tasks(count)
     `)
-        .or(`created_by.eq.${user?.id},id.in.(select project_id from project_members where user_id = ${user?.id})`)
         .order('created_at', { ascending: false })
 
     const statusColors = {
