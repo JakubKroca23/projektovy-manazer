@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type ViewMode = 'year' | 'month'
+
 
 interface Task {
     id: string
@@ -55,7 +55,7 @@ export interface Service {
 export default function ProjectTimeline({ projects: initialProjects, services: initialServices = [] }: { projects: Project[], services?: Service[] }) {
     const [projects, setProjects] = useState(initialProjects)
     const [services, setServices] = useState(initialServices) // Use state for optimistic updates
-    const [viewMode, setViewMode] = useState<ViewMode>('year')
+    const [zoom, setZoom] = useState(1) // 1 = 100%
     const [currentDate, setCurrentDate] = useState(new Date())
 
     // Default expanded all
@@ -94,27 +94,15 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
         const yearStart = startOfYear(currentDate)
         const yearEnd = endOfYear(currentDate)
 
-        const monthStart = startOfMonth(currentDate)
-        const monthEnd = endOfMonth(currentDate)
-
-        if (viewMode === 'year') {
-            const months = eachMonthOfInterval({ start: yearStart, end: yearEnd })
-            return {
-                headers: months.map(d => format(d, 'MMMM', { locale: cs })),
-                startDate: yearStart,
-                endDate: yearEnd,
-                totalDays: differenceInDays(yearEnd, yearStart) + 1,
-            }
-        } else {
-            const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-            return {
-                headers: days.map(d => format(d, 'd.', { locale: cs })),
-                startDate: monthStart,
-                endDate: monthEnd,
-                totalDays: days.length,
-            }
+        // Always Year View Logic (Zoomable)
+        const months = eachMonthOfInterval({ start: yearStart, end: yearEnd })
+        return {
+            headers: months.map(d => format(d, 'MMMM', { locale: cs })),
+            startDate: yearStart,
+            endDate: yearEnd,
+            totalDays: differenceInDays(yearEnd, yearStart) + 1,
         }
-    }, [viewMode, currentDate])
+    }, [currentDate])
 
     const getPosition = (start: string | null, end: string | null, created: string) => {
         const timelineStart = timelineData.startDate
@@ -331,11 +319,7 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
 
     const navigation = (direction: 'prev' | 'next') => {
         const newDate = new Date(currentDate)
-        if (viewMode === 'year') {
-            newDate.setFullYear(newDate.getFullYear() + (direction === 'next' ? 1 : -1))
-        } else {
-            newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1))
-        }
+        newDate.setFullYear(newDate.getFullYear() + (direction === 'next' ? 1 : -1))
         setCurrentDate(newDate)
     }
 
@@ -355,7 +339,7 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <h3 className="text-xl font-bold text-white min-w-[150px] text-center capitalize">
-                        {viewMode === 'year' ? format(currentDate, 'yyyy') : format(currentDate, 'MMMM yyyy', { locale: cs })}
+                        {format(currentDate, 'yyyy')}
                     </h3>
                     <button onClick={() => navigation('next')} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
                         <ChevronRight className="w-5 h-5" />
@@ -380,49 +364,75 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                     </button>
                 </div>
 
-                <div className="flex bg-black/20 rounded-lg p-1">
-                    <button onClick={() => setViewMode('year')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'year' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>Rok</button>
-                    <button onClick={() => setViewMode('month')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'month' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>Měsíc</button>
+                <div className="flex items-center space-x-4">
+                    <div className="flex items-center bg-black/20 rounded-lg p-1 space-x-2 px-3">
+                        <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">Zoom</span>
+                        <input
+                            type="range"
+                            min="100"
+                            max="500"
+                            value={zoom * 100}
+                            onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                            className="w-32 accent-purple-600 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <span className="text-xs text-gray-400 min-w-[3ch]">{Math.round(zoom * 100)}%</span>
+                    </div>
                 </div>
             </div>
 
             {/* Timeline Container */}
             <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
 
-                {/* Header Row */}
-                <div className="flex border-b border-white/10 bg-white/5 h-12">
-                    <div className="w-72 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center pl-4">
-                        Projekt / Zakázka / Servis
-                    </div>
-                    <div className="flex-1 relative overflow-hidden" ref={containerRef}>
-                        <div className="absolute inset-0 flex">
-                            {timelineData.headers.map((header, i) => (
-                                <div key={i} className="flex-1 border-r border-white/5 text-xs text-gray-400 flex items-center justify-center capitalize truncate px-1">
-                                    {header}
-                                </div>
-                            ))}
+                {/* Main Scrollable Area */}
+                <div className="max-h-[600px] overflow-y-auto overflow-x-auto custom-scrollbar">
+
+                    {/* Header Row - Sticky Top */}
+                    <div className="flex border-b border-white/10 bg-[#1a1f2e] h-12 sticky top-0 z-50 min-w-full w-fit">
+                        <div className="w-72 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center pl-4 sticky left-0 bg-[#1a1f2e] z-50 shadow-[2px_0_10px_rgba(0,0,0,0.3)]">
+                            Projekt / Zakázka / Servis
+                        </div>
+                        <div className="flex-1 relative overflow-hidden" style={{ minWidth: `${zoom * 100}%` }}>
+                            {/* Only ref the content that changes width */}
+                            <div className="absolute inset-0 flex" ref={containerRef}>
+                                {timelineData.headers.map((header, i) => (
+                                    <div key={i} className="flex-1 border-r border-white/5 text-xs text-gray-400 flex items-center justify-center capitalize truncate px-1">
+                                        {header}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                {/* Rows */}
-                <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
 
                     {/* Services Section */}
                     {services.length > 0 && (
-                        <div className="border-b border-white/5 bg-red-900/10">
+                        <div className="border-b border-white/5 bg-red-900/10 min-w-full w-fit">
                             <div className="flex group hover:bg-white/[0.02] transition-colors relative h-10 bg-white/[0.02]">
-                                <div className="w-72 p-2 pl-2 border-r border-white/10 shrink-0 z-20 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2">
+                                <div className="w-72 p-2 pl-2 border-r border-white/10 shrink-0 z-40 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2 shadow-[2px_0_10px_rgba(0,0,0,0.1)]">
                                     <button onClick={() => setShowServices(!showServices)} className="p-1 hover:bg-white/10 rounded text-gray-400">
                                         {showServices ? <ChevronDown className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
                                     </button>
                                     <Wrench className="w-4 h-4 text-red-500" />
                                     <span className="font-bold text-red-400 truncate">SERVISY</span>
                                 </div>
-                                <div className="flex-1 relative min-w-[300px]">
+                                <div className="flex-1 relative" style={{ minWidth: `${zoom * 100}%` }}>
                                     <div className="absolute inset-0 flex pointer-events-none">
                                         {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
                                     </div>
+
+                                    {/* Render collapsed services on the timeline track */}
+                                    {!showServices && services.map(service => {
+                                        const style = getPosition(service.start_date, service.end_date, service.created_at)
+                                        if (!style) return null
+                                        return (
+                                            <div
+                                                key={service.id}
+                                                className="absolute top-2.5 h-5 rounded-sm bg-red-600/60 border border-red-500/50 hover:bg-red-600 z-10 cursor-pointer"
+                                                style={style}
+                                                title={service.name}
+                                                onClick={() => setShowServices(true)}
+                                            />
+                                        )
+                                    })}
                                 </div>
                             </div>
 
@@ -430,12 +440,12 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                 const style = getPosition(service.start_date, service.end_date, service.created_at)
                                 return (
                                     <div key={service.id} className="flex group hover:bg-white/[0.02] transition-colors relative h-8 bg-black/20">
-                                        <div className="w-72 p-2 pl-8 border-r border-white/10 shrink-0 z-10 bg-[#161b28] sticky left-0 flex items-center">
+                                        <div className="w-72 p-2 pl-8 border-r border-white/10 shrink-0 z-30 bg-[#161b28] sticky left-0 flex items-center shadow-[2px_0_10px_rgba(0,0,0,0.1)]">
                                             <span className="truncate text-sm text-gray-300 hover:text-white transition-colors block">
                                                 {service.name}
                                             </span>
                                         </div>
-                                        <div className="flex-1 relative min-w-[300px]">
+                                        <div className="flex-1 relative" style={{ minWidth: `${zoom * 100}%` }}>
                                             <div className="absolute inset-0 flex pointer-events-none">
                                                 {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
                                             </div>
@@ -463,10 +473,10 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                         const projectJobs = project.jobs || []
 
                         return (
-                            <div key={project.id} className="border-b border-white/5">
+                            <div key={project.id} className="border-b border-white/5 min-w-full w-fit">
                                 {/* Project Row - same as before */}
                                 <div className="flex group hover:bg-white/[0.02] transition-colors relative h-12 bg-white/[0.02]">
-                                    <div className="w-72 p-2 pl-2 border-r border-white/10 shrink-0 z-20 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2">
+                                    <div className="w-72 p-2 pl-2 border-r border-white/10 shrink-0 z-40 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2 shadow-[2px_0_10px_rgba(0,0,0,0.1)]">
                                         <button onClick={() => toggleProject(project.id)} className="p-1 hover:bg-white/10 rounded text-gray-400">
                                             {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
                                         </button>
@@ -476,7 +486,7 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                     </div>
 
                                     {/* Timeline Area (Project) */}
-                                    <div className="flex-1 relative min-w-[300px]">
+                                    <div className="flex-1 relative" style={{ minWidth: `${zoom * 100}%` }}>
                                         <div className="absolute inset-0 flex pointer-events-none">
                                             {Array.from({ length: timelineData.totalDays }).map((_, i) => (
                                                 <div key={i} className="flex-1 border-r border-white/[0.03]"></div>
@@ -508,12 +518,12 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                             const taskStyle = getPosition(task.start_date || null, task.due_date, task.created_at)
                                             return (
                                                 <div key={task.id} className="flex group hover:bg-white/[0.02] transition-colors relative h-8 bg-black/20">
-                                                    <div className="w-72 p-2 pl-8 border-r border-white/10 shrink-0 z-10 bg-[#161b28] sticky left-0 flex items-center">
+                                                    <div className="w-72 p-2 pl-8 border-r border-white/10 shrink-0 z-30 bg-[#161b28] sticky left-0 flex items-center shadow-[2px_0_10px_rgba(0,0,0,0.1)]">
                                                         <span className="truncate text-sm text-gray-400 hover:text-white transition-colors block">
                                                             {task.title}
                                                         </span>
                                                     </div>
-                                                    <div className="flex-1 relative min-w-[300px]">
+                                                    <div className="flex-1 relative" style={{ minWidth: `${zoom * 100}%` }}>
                                                         <div className="absolute inset-0 flex pointer-events-none">
                                                             {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
                                                         </div>
@@ -540,7 +550,7 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                                 <div key={job.id}>
                                                     {/* Job Row */}
                                                     <div className="flex group hover:bg-white/[0.02] transition-colors relative h-10 bg-white/[0.05]">
-                                                        <div className="w-72 p-2 pl-6 border-r border-white/10 shrink-0 z-20 bg-[#181d2b] sticky left-0 flex items-center space-x-2">
+                                                        <div className="w-72 p-2 pl-6 border-r border-white/10 shrink-0 z-40 bg-[#181d2b] sticky left-0 flex items-center space-x-2 shadow-[2px_0_10px_rgba(0,0,0,0.1)]">
                                                             <button onClick={() => toggleJob(job.id)} className="p-1 hover:bg-white/10 rounded text-gray-400">
                                                                 {jobExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
                                                             </button>
@@ -549,7 +559,7 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                                                 {job.name}
                                                             </span>
                                                         </div>
-                                                        <div className="flex-1 relative min-w-[300px]">
+                                                        <div className="flex-1 relative" style={{ minWidth: `${zoom * 100}%` }}>
                                                             <div className="absolute inset-0 flex pointer-events-none">
                                                                 {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
                                                             </div>
@@ -570,12 +580,12 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                                         const taskStyle = getPosition(task.start_date || null, task.due_date, task.created_at)
                                                         return (
                                                             <div key={task.id} className="flex group hover:bg-white/[0.02] transition-colors relative h-8 bg-black/20">
-                                                                <div className="w-72 p-2 pl-12 border-r border-white/10 shrink-0 z-10 bg-[#161b28] sticky left-0 flex items-center">
+                                                                <div className="w-72 p-2 pl-12 border-r border-white/10 shrink-0 z-30 bg-[#161b28] sticky left-0 flex items-center shadow-[2px_0_10px_rgba(0,0,0,0.1)]">
                                                                     <span className="truncate text-sm text-gray-400 hover:text-white transition-colors block">
                                                                         {task.title}
                                                                     </span>
                                                                 </div>
-                                                                <div className="flex-1 relative min-w-[300px]">
+                                                                <div className="flex-1 relative" style={{ minWidth: `${zoom * 100}%` }}>
                                                                     <div className="absolute inset-0 flex pointer-events-none">
                                                                         {Array.from({ length: timelineData.totalDays }).map((_, i) => <div key={i} className="flex-1 border-r border-white/[0.03]"></div>)}
                                                                     </div>
