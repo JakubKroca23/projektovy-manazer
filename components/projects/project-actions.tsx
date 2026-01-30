@@ -48,8 +48,7 @@ export default function ProjectActions({ projectId, projectName }: { projectId: 
                         <button
                             onClick={() => {
                                 setIsOpen(false)
-                                // TODO: Implement edit
-                                alert('Editace zatím není implementována')
+                                router.push(`/dashboard/projekty/${projectId}/upravit`)
                             }}
                             className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center space-x-2"
                         >

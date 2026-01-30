@@ -120,7 +120,11 @@ export default function NovyProjektPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-200 mb-2">Sektor</label>
-                                <input type="text" name="sector" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                <select name="sector" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
+                                    <option value="" className="text-gray-900">Vyberte sektor...</option>
+                                    <option value="Civil" className="text-gray-900">Civil</option>
+                                    <option value="Army" className="text-gray-900">Army</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -147,7 +151,13 @@ export default function NovyProjektPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-200 mb-2">Vedoucí projektu</label>
-                                <input type="text" name="project_manager" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                <select name="project_manager" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
+                                    <option value="" className="text-gray-900">Vyberte vedoucího...</option>
+                                    <option value="Ing. Jan Novák" className="text-gray-900">Ing. Jan Novák</option>
+                                    <option value="Petr Svoboda" className="text-gray-900">Petr Svoboda</option>
+                                    <option value="Ing. Marie Černá" className="text-gray-900">Ing. Marie Černá</option>
+                                    <option value="David Procházka" className="text-gray-900">David Procházka</option>
+                                </select>
                             </div>
                         </div>
                     </div>
