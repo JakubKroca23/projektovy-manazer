@@ -7,11 +7,15 @@ import ProjectActions from '@/components/projects/project-actions'
 import GenerateJobsButton from '@/components/projects/generate-jobs-button'
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-    if (params.id === 'undefined') {
+    // Basic validation of UUID format to prevent Postgres errors
+    const isValidUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(params.id)
+
+    if (!isValidUUID) {
+        console.error(`Invalid Project ID: ${params.id}`)
         return (
             <div className="p-8 text-center text-gray-400">
                 <h2 className="text-xl font-bold text-white mb-2">Chybný odkaz na projekt</h2>
-                <p>ID projektu nebylo nalezeno. Zkuste se vrátit na seznam projektů.</p>
+                <p>ID projektu "{params.id}" není platné. Zkuste se vrátit na seznam projektů.</p>
                 <Link href="/dashboard/projekty" className="inline-block mt-4 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
                     Zpět na projekty
                 </Link>
