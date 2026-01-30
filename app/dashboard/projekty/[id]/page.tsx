@@ -5,7 +5,6 @@ import { notFound } from 'next/navigation'
 import ProjectActions from '@/components/projects/project-actions'
 
 import GenerateJobsButton from '@/components/projects/generate-jobs-button'
-import VehicleBuilder from '@/components/projects/vehicle-builder'
 import ProjectFiles from '@/components/projects/project-files'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -124,31 +123,19 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </div>
 
 
-            {/* Specifikace vozidla - Vykres */}
+            {/* Specifikace vozidla */}
             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-white flex items-center">
                         <Truck className="w-5 h-5 mr-2 text-purple-400" />
-                        Technický výkres vozidla
+                        Specifikace vozidla
                     </h2>
                     <Link href={`/dashboard/projekty/${id}/upravit`} className="text-xs text-purple-400 hover:text-purple-300">
                         Upravit konfiguraci
                     </Link>
                 </div>
 
-                {/* Embed VehicleBuilder in ReadOnly Mode */}
-                <div className="bg-white border-b border-gray-200">
-                    <VehicleBuilder
-                        initialData={{
-                            config: project.vehicle_config,
-                            brand: project.vehicle_brand,
-                            bodies: project.bodies,
-                            axlePositions: project.axle_positions?.positions || project.axle_positions,
-                            chassisLength: project.axle_positions?.chassisLength || 8000
-                        }}
-                        readOnly={true}
-                    />
-                </div>
+                {/* VehicleBuilder removed as per user request */}
 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
                     <div className="space-y-3">
