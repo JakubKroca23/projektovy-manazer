@@ -18,7 +18,14 @@ export default async function ProjektyPage() {
       expected_start_date,
       deadline,
       customer,
-      project_manager
+      project_manager,
+      tasks (
+        id,
+        title,
+        status,
+        due_date,
+        created_at
+      )
     `)
         .order('created_at', { ascending: false })
 

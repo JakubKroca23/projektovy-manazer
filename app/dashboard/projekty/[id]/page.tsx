@@ -122,6 +122,25 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 </div>
             </div>
 
+            {/* Specifikace vozidla */}
+            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">Specifikace vozidla</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Konfigurace</span> <span className="text-white font-medium">{project.vehicle_config || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Značka</span> <span className="text-white">{project.vehicle_brand || '-'}</span></div>
+                    </div>
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Typ nástavby</span> <span className="text-white">{project.body_type || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Jeřáb</span> <span className="text-white">{project.crane_type || '-'}</span></div>
+                    </div>
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Podpěry</span> <span className="text-white">{project.outriggers_type || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Čerpadlo</span> <span className="text-white">{project.pump_type || '-'}</span></div>
+                    </div>
+                </div>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6">

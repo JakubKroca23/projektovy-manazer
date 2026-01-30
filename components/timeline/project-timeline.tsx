@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, isWithinInterval, startOfYear, endOfYear, getMonth, getDate, getYear } from 'date-fns'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, startOfYear, endOfYear, isBefore, isAfter } from 'date-fns'
 import { cs } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 type ViewMode = 'year' | 'month'
+
+interface Task {
+    id: string
+    title: string
+    status: string
+    due_date: string | null
+    created_at: string
+}
 
 interface Project {
     id: string
@@ -15,15 +25,32 @@ interface Project {
     expected_start_date: string | null
     deadline: string | null
     created_at: string
-    project_manager?: string
     customer?: string
+    tasks?: Task[]
 }
 
-export default function ProjectTimeline({ projects }: { projects: Project[] }) {
+export default function ProjectTimeline({ projects: initialProjects }: { projects: Project[] }) {
+    const [projects, setProjects] = useState(initialProjects)
     const [viewMode, setViewMode] = useState<ViewMode>('year')
     const [currentDate, setCurrentDate] = useState(new Date())
+    const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
 
-    // Generování časové osy podle zoomu
+    // Drag & Drop State
+    const [isDragging, setIsDragging] = useState(false)
+    const [dragType, setDragType] = useState<'move' | 'resize-start' | 'resize-end' | null>(null)
+    const [dragProjectId, setDragProjectId] = useState<string | null>(null)
+    const [dragStartX, setDragStartX] = useState(0)
+    const [dragInitialDates, setDragInitialDates] = useState<{ start: Date, end: Date } | null>(null)
+
+    const containerRef = useRef<HTMLDivElement>(null)
+    const supabase = createClient()
+    const router = useRouter()
+
+    useEffect(() => {
+        setProjects(initialProjects)
+    }, [initialProjects])
+
+    // Generování časové osy
     const timelineData = useMemo(() => {
         const yearStart = startOfYear(currentDate)
         const yearEnd = endOfYear(currentDate)
@@ -36,44 +63,129 @@ export default function ProjectTimeline({ projects }: { projects: Project[] }) {
             return {
                 headers: months.map(d => format(d, 'MMMM', { locale: cs })),
                 startDate: yearStart,
+                endDate: yearEnd,
                 totalDays: differenceInDays(yearEnd, yearStart) + 1,
-                divisions: 12
             }
         } else {
-            // Month view (detail)
             const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
             return {
                 headers: days.map(d => format(d, 'd.', { locale: cs })),
                 startDate: monthStart,
+                endDate: monthEnd,
                 totalDays: days.length,
-                divisions: days.length
             }
         }
     }, [viewMode, currentDate])
 
-    // Pomocná funkce pro výpočet pozice a šířky
-    const getPositionStyle = (start: string | null, end: string | null, creation: string) => {
+    const getPosition = (start: string | null, end: string | null, created: string) => {
         const timelineStart = timelineData.startDate
-        // Pokud nemá start date, bereme created_at
-        const itemStart = start ? new Date(start) : new Date(creation)
-        // Pokud nemá deadline, dáme mu defaultně 30 dní nebo do dneška
+        const itemStart = start ? new Date(start) : new Date(created)
         const itemEnd = end ? new Date(end) : addDays(itemStart, 30)
 
         const startDiff = differenceInDays(itemStart, timelineStart)
         const duration = differenceInDays(itemEnd, itemStart)
 
-        // Ošetření pro zobrazení mimo rozsah
-        if (startDiff + duration < 0 || startDiff > timelineData.totalDays) {
-            return { display: 'none' }
-        }
+        // Basic clamping for display
+        if (differenceInDays(itemEnd, timelineData.startDate) < 0) return null // Ends before view
+        if (differenceInDays(itemStart, timelineData.endDate!) > 0) return null // Starts after view
 
-        const leftPercent = (Math.max(0, startDiff) / timelineData.totalDays) * 100
-        const widthPercent = (Math.min(duration, timelineData.totalDays - startDiff) / timelineData.totalDays) * 100
+        const leftPercent = (startDiff / timelineData.totalDays) * 100
+        const widthPercent = (duration / timelineData.totalDays) * 100
 
         return {
             left: `${leftPercent}%`,
-            width: `${Math.max(widthPercent, 1)}%` // Minimum 1% width
+            width: `${Math.max(widthPercent, 0.5)}%`
         }
+    }
+
+    // Drag Handlers
+    const handleMouseDown = (e: React.MouseEvent, projectId: string, type: 'move' | 'resize-start' | 'resize-end') => {
+        e.preventDefault()
+        e.stopPropagation()
+        const project = projects.find(p => p.id === projectId)
+        if (!project) return
+
+        setIsDragging(true)
+        setDragType(type)
+        setDragProjectId(projectId)
+        setDragStartX(e.clientX)
+
+        const start = project.expected_start_date ? new Date(project.expected_start_date) : new Date(project.created_at)
+        const end = project.deadline ? new Date(project.deadline) : addDays(start, 30)
+
+        setDragInitialDates({ start, end })
+    }
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging || !dragProjectId || !dragInitialDates || !containerRef.current) return
+
+        const deltaPixels = e.clientX - dragStartX
+        const containerWidth = containerRef.current.offsetWidth
+        const pixelsPerDay = containerWidth / timelineData.totalDays
+        const deltaDays = Math.round(deltaPixels / pixelsPerDay)
+
+        if (deltaDays === 0) return
+
+        setProjects(prev => prev.map(p => {
+            if (p.id !== dragProjectId) return p
+
+            let newStart = new Date(dragInitialDates.start)
+            let newEnd = new Date(dragInitialDates.end)
+
+            if (dragType === 'move') {
+                newStart = addDays(newStart, deltaDays)
+                newEnd = addDays(newEnd, deltaDays)
+            } else if (dragType === 'resize-start') {
+                newStart = addDays(newStart, deltaDays)
+                // Prevent start > end
+                if (differenceInDays(newEnd, newStart) < 1) newStart = addDays(newEnd, -1)
+            } else if (dragType === 'resize-end') {
+                newEnd = addDays(newEnd, deltaDays)
+                // Prevent end < start
+                if (differenceInDays(newEnd, newStart) < 1) newEnd = addDays(newStart, 1)
+            }
+
+            return {
+                ...p,
+                expected_start_date: newStart.toISOString(),
+                deadline: newEnd.toISOString()
+            }
+        }))
+    }
+
+    const handleMouseUp = async () => {
+        if (!isDragging || !dragProjectId) return
+
+        const project = projects.find(p => p.id === dragProjectId)
+        if (project) {
+            // Save to DB
+            const { error } = await supabase
+                .from('projects')
+                .update({
+                    expected_start_date: project.expected_start_date,
+                    deadline: project.deadline
+                })
+                .eq('id', dragProjectId)
+
+            if (error) {
+                console.error('Failed to update project dates:', error)
+                // Revert or show toast (omitted for brevity)
+            } else {
+                router.refresh()
+            }
+        }
+
+        setIsDragging(false)
+        setDragType(null)
+        setDragProjectId(null)
+        setDragInitialDates(null)
+    }
+
+    const toggleProject = (id: string) => {
+        const newSet = new Set(expandedProjects)
+        if (newSet.has(id)) newSet.delete(id)
+        else newSet.add(id)
+        setExpandedProjects(newSet)
     }
 
     const navigation = (direction: 'prev' | 'next') => {
@@ -94,7 +206,7 @@ export default function ProjectTimeline({ projects }: { projects: Project[] }) {
     } as const
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 select-none" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
             {/* Controls */}
             <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
                 <div className="flex items-center space-x-4">
@@ -110,18 +222,8 @@ export default function ProjectTimeline({ projects }: { projects: Project[] }) {
                 </div>
 
                 <div className="flex bg-black/20 rounded-lg p-1">
-                    <button
-                        onClick={() => setViewMode('year')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'year' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                    >
-                        Rok
-                    </button>
-                    <button
-                        onClick={() => setViewMode('month')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'month' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                    >
-                        Měsíc
-                    </button>
+                    <button onClick={() => setViewMode('year')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'year' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>Rok</button>
+                    <button onClick={() => setViewMode('month')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'month' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>Měsíc</button>
                 </div>
             </div>
 
@@ -129,11 +231,11 @@ export default function ProjectTimeline({ projects }: { projects: Project[] }) {
             <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
 
                 {/* Header Row */}
-                <div className="flex border-b border-white/10 bg-white/5">
-                    <div className="w-64 p-4 border-r border-white/10 shrink-0 font-medium text-gray-300">
-                        Projekt
+                <div className="flex border-b border-white/10 bg-white/5 h-12">
+                    <div className="w-64 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center">
+                        Projekt / Úkol
                     </div>
-                    <div className="flex-1 relative h-12">
+                    <div className="flex-1 relative overflow-hidden" ref={containerRef}>
                         <div className="absolute inset-0 flex">
                             {timelineData.headers.map((header, i) => (
                                 <div key={i} className="flex-1 border-r border-white/5 text-xs text-gray-400 flex items-center justify-center capitalize truncate px-1">
@@ -144,65 +246,98 @@ export default function ProjectTimeline({ projects }: { projects: Project[] }) {
                     </div>
                 </div>
 
-                {/* Project Rows */}
-                <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto custom-scrollbar">
-                    {projects.map(project => (
-                        <div key={project.id} className="flex group hover:bg-white/[0.02] transition-colors relative">
-                            {/* Project Info Column */}
-                            <div className="w-64 p-4 border-r border-white/10 shrink-0 z-10 bg-[#1a1f2e]/95 backdrop-blur sticky left-0 group-hover:bg-[#1a1f2e]">
-                                <Link href={`/dashboard/projekty/${project.id}`} className="block">
-                                    <div className="font-medium text-white truncate hover:text-purple-400 transition-colors">{project.name}</div>
-                                    <div className="text-xs text-gray-500 mt-1 truncate">
-                                        {project.customer || 'Bez klienta'}
-                                    </div>
-                                    {project.deadline && (
-                                        <div className="text-xs text-orange-400/80 mt-1 flex items-center">
-                                            <Calendar className="w-3 h-3 mr-1" />
-                                            {format(new Date(project.deadline), 'd.M.')}
-                                        </div>
-                                    )}
-                                </Link>
-                            </div>
+                {/* Rows */}
+                <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                    {projects.map(project => {
+                        const style = getPosition(project.expected_start_date, project.deadline, project.created_at)
+                        const isExpanded = expandedProjects.has(project.id)
 
-                            {/* Gantt Bar Area */}
-                            <div className="flex-1 relative h-20 min-w-[800px]">
-                                {/* Grid Lines Background */}
-                                <div className="absolute inset-0 flex pointer-events-none">
-                                    {Array.from({ length: timelineData.divisions }).map((_, i) => (
-                                        <div key={i} className="flex-1 border-r border-white/[0.03]"></div>
-                                    ))}
+                        return (
+                            <div key={project.id} className="border-b border-white/5">
+                                {/* Project Row */}
+                                <div className="flex group hover:bg-white/[0.02] transition-colors relative h-12 bg-white/[0.02]">
+                                    <div className="w-64 p-2 pl-4 border-r border-white/10 shrink-0 z-20 bg-[#1a1f2e] sticky left-0 flex items-center space-x-2">
+                                        <button onClick={() => toggleProject(project.id)} className="p-1 hover:bg-white/10 rounded text-gray-400">
+                                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRightIcon className="w-4 h-4" />}
+                                        </button>
+                                        <Link href={`/dashboard/projekty/${project.id}`} className="truncate font-medium text-white hover:text-purple-400 transition-colors block flex-1">
+                                            {project.name}
+                                        </Link>
+                                    </div>
+
+                                    {/* Timeline Area */}
+                                    <div className="flex-1 relative min-w-[300px]">
+                                        {/* Grid Lines */}
+                                        <div className="absolute inset-0 flex pointer-events-none">
+                                            {Array.from({ length: timelineData.totalDays }).map((_, i) => (
+                                                <div key={i} className="flex-1 border-r border-white/[0.03]"></div>
+                                            ))}
+                                        </div>
+
+                                        {/* Project Bar */}
+                                        {style && (
+                                            <div
+                                                className={`absolute top-2 h-8 rounded-md shadow-lg transition-shadow border cursor-move group/bar ${statusColors[project.status as keyof typeof statusColors] || 'bg-gray-600'} ${isDragging && dragProjectId === project.id ? 'ring-2 ring-white z-30' : 'z-10'}`}
+                                                style={style}
+                                                onMouseDown={(e) => handleMouseDown(e, project.id, 'move')}
+                                            >
+                                                {/* Resize Handles */}
+                                                <div
+                                                    className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-l-md z-20"
+                                                    onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-start')}
+                                                />
+                                                <div className="px-2 py-1 text-xs text-white truncate pointer-events-none w-full h-full flex items-center">
+                                                    {project.name}
+                                                </div>
+                                                <div
+                                                    className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-r-md z-20"
+                                                    onMouseDown={(e) => handleMouseDown(e, project.id, 'resize-end')}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                {/* The Bar */}
-                                <div className="absolute top-1/2 -translate-y-1/2 h-8 rounded-full shadow-lg transition-all hover:h-10 hover:shadow-purple-500/20 cursor-pointer group/bar"
-                                    style={getPositionStyle(project.expected_start_date, project.deadline, project.created_at)}
-                                >
-                                    <Link href={`/dashboard/projekty/${project.id}`} className={`block w-full h-full rounded-md opacity-80 hover:opacity-100 border ${statusColors[project.status as keyof typeof statusColors] || 'bg-gray-600'}`}>
-                                        {/* Tooltip on hover */}
-                                        <div className="opacity-0 group-hover/bar:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-black/90 text-white text-xs rounded border border-white/20 whitespace-nowrap z-20 pointer-events-none transition-opacity">
-                                            {project.name}
-                                            <div className="text-gray-400 text-[10px]">
-                                                {format(new Date(project.expected_start_date || project.created_at), 'd.M.')} - {project.deadline ? format(new Date(project.deadline), 'd.M.') : '?'}
+                                {/* Tasks Sub-rows */}
+                                {isExpanded && project.tasks && project.tasks.map(task => {
+                                    const taskStyle = getPosition(task.created_at, task.due_date, task.created_at) // Assuming task starts at created_at
+                                    return (
+                                        <div key={task.id} className="flex group hover:bg-white/[0.02] transition-colors relative h-8 bg-black/20">
+                                            <div className="w-64 p-2 pl-12 border-r border-white/10 shrink-0 z-10 bg-[#161b28] sticky left-0 flex items-center">
+                                                <span className="truncate text-sm text-gray-400 hover:text-white transition-colors block">
+                                                    {task.title}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 relative min-w-[300px]">
+                                                {/* Grid Lines */}
+                                                <div className="absolute inset-0 flex pointer-events-none">
+                                                    {Array.from({ length: timelineData.totalDays }).map((_, i) => (
+                                                        <div key={i} className="flex-1 border-r border-white/[0.03]"></div>
+                                                    ))}
+                                                </div>
+
+                                                {taskStyle && (
+                                                    <div
+                                                        className="absolute top-1.5 h-5 rounded-sm bg-cyan-600/50 border border-cyan-500/50 hover:bg-cyan-600 transition-colors"
+                                                        style={taskStyle}
+                                                    >
+                                                        <div className="px-2 text-[10px] text-cyan-100 truncate w-full h-full flex items-center">
+                                                            {task.status}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                    </Link>
-                                </div>
+                                    )
+                                })}
                             </div>
-                        </div>
-                    ))}
-
-                    {projects.length === 0 && (
-                        <div className="p-12 text-center text-gray-500">
-                            Žádné projekty k zobrazení v tomto období.
-                        </div>
-                    )}
+                        )
+                    })}
                 </div>
             </div>
 
-            <div className="flex justify-end space-x-4 text-xs text-gray-500">
-                <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 rounded mr-2"></div> Plánování</div>
-                <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded mr-2"></div> Aktivní</div>
-                <div className="flex items-center"><div className="w-3 h-3 bg-purple-500 rounded mr-2"></div> Dokončeno</div>
+            <div className="text-xs text-gray-500 flex justify-between">
+                <div>Tažením myši posunete termín projektu. Tažením okrajů změníte délku trvání.</div>
             </div>
         </div>
     )

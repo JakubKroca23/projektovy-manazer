@@ -14,6 +14,13 @@ interface Project {
     created_at: string
     customer?: string
     project_manager?: string
+    tasks?: {
+        id: string
+        title: string
+        status: string
+        due_date: string | null
+        created_at: string
+    }[]
 }
 
 export default function ProjectViews({ projects }: { projects: Project[] }) {
@@ -26,8 +33,8 @@ export default function ProjectViews({ projects }: { projects: Project[] }) {
                 <button
                     onClick={() => setView('timeline')}
                     className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'timeline'
-                            ? 'bg-purple-600 text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                        ? 'bg-purple-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                         }`}
                 >
                     <Calendar className="w-4 h-4" />
@@ -36,8 +43,8 @@ export default function ProjectViews({ projects }: { projects: Project[] }) {
                 <button
                     onClick={() => setView('table')}
                     className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'table'
-                            ? 'bg-purple-600 text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                        ? 'bg-purple-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                         }`}
                 >
                     <Table2 className="w-4 h-4" />

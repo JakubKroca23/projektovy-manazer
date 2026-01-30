@@ -35,7 +35,13 @@ export default function UpravitProjektPage() {
         op_opv_sro: '',
         op_group_zakaznik: '',
         ov_group_sro: '',
-        zakazka_sro: ''
+        zakazka_sro: '',
+        vehicle_config: '',
+        vehicle_brand: '',
+        body_type: '',
+        crane_type: '',
+        outriggers_type: '',
+        pump_type: ''
     })
 
     useEffect(() => {
@@ -75,7 +81,13 @@ export default function UpravitProjektPage() {
                     op_opv_sro: data.op_opv_sro || '',
                     op_group_zakaznik: data.op_group_zakaznik || '',
                     ov_group_sro: data.ov_group_sro || '',
-                    zakazka_sro: data.zakazka_sro || ''
+                    zakazka_sro: data.zakazka_sro || '',
+                    vehicle_config: data.vehicle_config || '',
+                    vehicle_brand: data.vehicle_brand || '',
+                    body_type: data.body_type || '',
+                    crane_type: data.crane_type || '',
+                    outriggers_type: data.outriggers_type || '',
+                    pump_type: data.pump_type || ''
                 })
             }
             setLoading(false)
@@ -115,7 +127,13 @@ export default function UpravitProjektPage() {
                 op_opv_sro: formData.op_opv_sro || null,
                 op_group_zakaznik: formData.op_group_zakaznik || null,
                 ov_group_sro: formData.ov_group_sro || null,
-                zakazka_sro: formData.zakazka_sro || null
+                zakazka_sro: formData.zakazka_sro || null,
+                vehicle_config: formData.vehicle_config || null,
+                vehicle_brand: formData.vehicle_brand || null,
+                body_type: formData.body_type || null,
+                crane_type: formData.crane_type || null,
+                outriggers_type: formData.outriggers_type || null,
+                pump_type: formData.pump_type || null
             })
             .eq('id', id)
 
@@ -174,6 +192,52 @@ export default function UpravitProjektPage() {
                                 <option value="Civil" className="text-gray-900">Civil</option>
                                 <option value="Army" className="text-gray-900">Army</option>
                             </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Specifikace vozidla */}
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold text-white border-b border-white/10 pb-2">Specifikace vozidla</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">Konfigurace podvozku</label>
+                            <select name="vehicle_config" value={formData.vehicle_config} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
+                                <option value="" className="text-gray-900">Vyberte konfig...</option>
+                                {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x6', '8x8'].map(opt => (
+                                    <option key={opt} value={opt} className="text-gray-900">{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">Značka vozidla</label>
+                            <select name="vehicle_brand" value={formData.vehicle_brand} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
+                                <option value="" className="text-gray-900">Vyberte značku...</option>
+                                {['Tatra', 'Mercedes-Benz', 'Volvo', 'Scania', 'MAN', 'DAF', 'Iveco', 'Renault'].map(opt => (
+                                    <option key={opt} value={opt} className="text-gray-900">{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">Typ nástavby</label>
+                            <select name="body_type" value={formData.body_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none">
+                                <option value="" className="text-gray-900">Vyberte typ...</option>
+                                {['Sklápěč', 'Valník', 'Kontejnerový nosič', 'Cisterna', 'Skříňová', 'Domíchávač', 'Jeřáb', 'Jiná'].map(opt => (
+                                    <option key={opt} value={opt} className="text-gray-900">{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">Typ jeřábu</label>
+                            <input type="text" name="crane_type" value={formData.crane_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">Typ podpěr</label>
+                            <input type="text" name="outriggers_type" value={formData.outriggers_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">Čerpadlo</label>
+                            <input type="text" name="pump_type" value={formData.pump_type} onChange={handleChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
                         </div>
                     </div>
                 </div>
