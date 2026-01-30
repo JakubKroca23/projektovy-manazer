@@ -87,6 +87,41 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 </div>
             </div>
 
+            {/* Detail zakázky (CRM Data) */}
+            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 border-b border-white/10 pb-2">Detail zakázky</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Zákazník</span> <span className="text-white font-medium">{project.customer || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Sektor</span> <span className="text-white">{project.sector || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">OP-CRM</span> <span className="text-white">{project.op_crm || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Vedoucí</span> <span className="text-white">{project.project_manager || '-'}</span></div>
+                    </div>
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Termín zahájení</span> <span className="text-white">{project.expected_start_date ? formatDate(project.expected_start_date) : '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Konečný termín</span> <span className="text-white text-orange-300">{project.deadline ? formatDate(project.deadline) : '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Počet kusů</span> <span className="text-white">{project.quantity || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Montážní firma</span> <span className="text-white">{project.assembly_company || '-'}</span></div>
+                    </div>
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Fakturační firma</span> <span className="text-white">{project.billing_company || '-'}</span></div>
+                        <div><span className="text-gray-400 block text-xs">Dodací adresa</span> <span className="text-white">{project.delivery_address || '-'}</span></div>
+                        <div className="col-span-2"><span className="text-gray-400 block text-xs">Interní kódy</span>
+                            <div className="text-xs text-gray-500 mt-1 space-y-1">
+                                <div>OPV: {project.op_opv_sro || '-'}</div>
+                                <div>GRP: {project.op_group_zakaznik || '-'}</div>
+                                <div>OV: {project.ov_group_sro || '-'}</div>
+                                <div>ZAK: {project.zakazka_sro || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <div><span className="text-gray-400 block text-xs">Poznámka</span> <p className="text-gray-300 text-xs mt-1">{project.note || '-'}</p></div>
+                        <div><span className="text-gray-400 block text-xs">Požadovaná akce</span> <p className="text-yellow-400/80 text-xs mt-1">{project.required_action || '-'}</p></div>
+                    </div>
+                </div>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-6">
