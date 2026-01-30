@@ -9,7 +9,6 @@ const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Projekty', href: '/dashboard/projekty', icon: FolderKanban },
     { name: 'Úkoly', href: '/dashboard/ukoly', icon: CheckSquare },
-    { name: 'Kanban', href: '/dashboard/kanban', icon: BarChart3 },
     { name: 'Tým', href: '/dashboard/tym', icon: Users },
     { name: 'Nastavení', href: '/dashboard/nastaveni', icon: Settings },
 ]

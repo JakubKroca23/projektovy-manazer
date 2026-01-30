@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
-import ProjectTimeline from '@/components/timeline/project-timeline'
+import ProjectViews from '@/components/projects/project-views'
 
 export default async function ProjektyPage() {
     const supabase = await createClient()
@@ -28,7 +28,7 @@ export default async function ProjektyPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Plánování zakázek</h1>
-                    <p className="text-gray-400">Časová osa všech projektů a jejich termíny</p>
+                    <p className="text-gray-400">Přehled všech projektů v čase nebo v tabulce</p>
                 </div>
                 <Link
                     href="/dashboard/projekty/novy"
@@ -39,8 +39,8 @@ export default async function ProjektyPage() {
                 </Link>
             </div>
 
-            {/* Timeline View */}
-            <ProjectTimeline projects={projects || []} />
+            {/* Content View Switcher */}
+            <ProjectViews projects={(projects || []) as any[]} />
         </div>
     )
 }
