@@ -95,7 +95,7 @@ export default function VehicleBuilder({
         return {
             config: config,
             brand: initialData.brand || '',
-            bodies: (initialData.bodies || []).map((b: any) => ({
+            bodies: (Array.isArray(initialData.bodies) ? initialData.bodies : []).map((b: any) => ({
                 ...b,
                 x: b.x * 10 || 0, // Approx conversion if needed
                 width: b.width * 10 || 3000,

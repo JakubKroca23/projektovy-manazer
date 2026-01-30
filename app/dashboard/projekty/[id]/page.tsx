@@ -160,7 +160,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                             <div className="text-white flex flex-col">
                                 {project.bodies && Array.isArray(project.bodies) && project.bodies.length > 0 ? (
                                     project.bodies.map((b: any, i: number) => (
-                                        <span key={i}>{b.type} ({(b.width / 1000).toFixed(1)}m)</span>
+                                        <span key={i}>{b?.type} ({((b?.width || 0) / 1000).toFixed(1)}m)</span>
                                     ))
                                 ) : '-'}
                             </div>
