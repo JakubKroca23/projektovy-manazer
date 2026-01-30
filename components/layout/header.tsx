@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,15 +14,9 @@ import {
 import { User, LogOut, Settings } from "lucide-react";
 import { signOut } from "next-auth/react";
 
-interface HeaderProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
-}
-
-export function Header({ user }: HeaderProps) {
+export function Header() {
+  const { data: session } = useSession();
+  const user = session?.user;
   const handleSignOut = () => {
     signOut({ callbackUrl: "/prihlaseni" });
   };

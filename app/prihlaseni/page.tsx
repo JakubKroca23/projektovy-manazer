@@ -1,11 +1,41 @@
+"use client";
+
+import { signIn } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { Github } from "lucide-react";
+import { useState } from "react";
 
 export default function LoginPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    const formData = new FormData(event.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    try {
+      await signIn("credentials", {
+        email,
+        password,
+        redirect: true,
+        callbackUrl: "/dashboard"
+      });
+    } catch (error) {
+      setError("Nesprávné přihlašovací údaje");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -23,7 +53,13 @@ export default function LoginPage() {
             <CardTitle>Přihlášení</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -32,7 +68,8 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   required
-                  placeholder="vas@email.cz"
+                  placeholder="admin@firma.cz"
+                  disabled={isLoading}
                 />
               </div>
               <div>
@@ -43,12 +80,13 @@ export default function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  placeholder="••••••••"
+                  placeholder="password123"
+                  disabled={isLoading}
                 />
               </div>
               
-              <Button type="submit" className="w-full">
-                Přihlásit se
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Přihlašování..." : "Přihlásit se"}
               </Button>
             </form>
             
@@ -61,7 +99,11 @@ export default function LoginPage() {
               </div>
             </div>
             
-            <Button variant="outline" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            >
               <Github className="mr-2 h-4 w-4" />
               Přihlásit přes Google
             </Button>
