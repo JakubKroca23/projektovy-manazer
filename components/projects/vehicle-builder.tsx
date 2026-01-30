@@ -1,21 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, Truck } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Trash2, MoveHorizontal, ArrowLeftRight, Settings2 } from 'lucide-react'
 
 export interface BodyItem {
     id: string
     type: string
     description: string
+    x: number // Relative position (0-1000)
+    width: number // Relative width
+    height: number // Relative height
 }
 
 export interface VehicleData {
     config: string
     brand: string
     bodies: BodyItem[]
+    axlePositions?: number[] // Relative positions (0-1000)
 }
 
 const BODY_TYPES = ['Sklápěč', 'Valník', 'Kontejnerový nosič', 'Cisterna', 'Skříňová', 'Domíchávač', 'Jeřáb', 'Hydraulická ruka', 'Jiná']
+
+// Constants for visualization scale
+const VIEW_WIDTH = 800
+const VIEW_HEIGHT = 300
+const CHASSIS_Y = 180
+const GROUND_Y = 220
+const CAB_X = 50
+const SCALE_PIXELS_PER_METER = 80 // Approx visual scale
 
 export default function VehicleBuilder({
     initialData,
@@ -24,16 +36,47 @@ export default function VehicleBuilder({
     initialData: VehicleData,
     onChange: (data: VehicleData) => void
 }) {
-    const [data, setData] = useState<VehicleData>(initialData)
+    // Merge initial data with defaults if missing positions
+    const [data, setData] = useState<VehicleData>(() => {
+        // Default axle positions based on config if not provided
+        const axles = initialData.axlePositions || getDefaultAxlePositions(initialData.config)
+        return { ...initialData, axlePositions: axles }
+    })
 
+    // Update parent only when data actually changes (debounced if needed, but simple update here)
     useEffect(() => {
         onChange(data)
     }, [data, onChange])
 
+    // Update axle positions when config changes
+    useEffect(() => {
+        if (!data.axlePositions || data.axlePositions.length === 0) {
+            setData(prev => ({ ...prev, axlePositions: getDefaultAxlePositions(prev.config) }))
+        } else {
+            // Check if we need to sync axle count with config
+            const count = getAxleCount(data.config)
+            if (data.axlePositions.length !== count) {
+                setData(prev => ({ ...prev, axlePositions: getDefaultAxlePositions(prev.config) }))
+            }
+        }
+    }, [data.config])
+
+
     const addBody = () => {
+        // Find free space or place at end
+        const lastBody = data.bodies[data.bodies.length - 1]
+        const startX = lastBody ? lastBody.x + lastBody.width + 10 : 250
+
         setData(prev => ({
             ...prev,
-            bodies: [...prev.bodies, { id: crypto.randomUUID(), type: 'Valník', description: '' }]
+            bodies: [...prev.bodies, {
+                id: crypto.randomUUID(),
+                type: 'Valník',
+                description: '',
+                x: startX,
+                width: 300,
+                height: 80
+            }]
         }))
     }
 
@@ -44,28 +87,72 @@ export default function VehicleBuilder({
         }))
     }
 
-    const updateBody = (id: string, field: keyof BodyItem, value: string) => {
+    const updateBody = (id: string, field: keyof BodyItem, value: any) => {
         setData(prev => ({
             ...prev,
             bodies: prev.bodies.map(b => b.id === id ? { ...b, [field]: value } : b)
         }))
     }
 
+    // Drag & Drop Logic
+    const svgRef = useRef<SVGSVGElement>(null)
+    const [dragging, setDragging] = useState<{
+        type: 'axle' | 'body-move' | 'body-resize',
+        id: string | number,
+        startX: number,
+        initialVal: number
+    } | null>(null)
+
+    const handleSvgMouseMove = (e: React.MouseEvent) => {
+        if (!dragging || !svgRef.current) return
+
+        const svgRect = svgRef.current.getBoundingClientRect()
+        const scaleX = VIEW_WIDTH / svgRect.width
+        const deltaX = (e.clientX - dragging.startX) * scaleX
+
+        if (dragging.type === 'axle') {
+            const index = dragging.id as number
+            const newPos = Math.max(50, Math.min(750, dragging.initialVal + deltaX)) // Constraints
+
+            const newAxles = [...(data.axlePositions || [])]
+            newAxles[index] = newPos
+            setData(prev => ({ ...prev, axlePositions: newAxles }))
+        }
+        else if (dragging.type === 'body-move') {
+            const id = dragging.id as string
+            const newPos = dragging.initialVal + deltaX
+            updateBody(id, 'x', newPos)
+        }
+        else if (dragging.type === 'body-resize') {
+            const id = dragging.id as string
+            const newWidth = Math.max(50, dragging.initialVal + deltaX)
+            updateBody(id, 'width', newWidth)
+        }
+    }
+
+    const handleSvgMouseUp = () => {
+        setDragging(null)
+    }
+
     return (
         <div className="space-y-6">
+            {/* Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-200 mb-2">Konfigurace podvozku</label>
-                    <select
-                        value={data.config}
-                        onChange={(e) => setData(prev => ({ ...prev, config: e.target.value }))}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none"
-                    >
-                        <option value="" className="text-gray-900">Vyberte konfig...</option>
-                        {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x6', '8x8'].map(opt => (
-                            <option key={opt} value={opt} className="text-gray-900">{opt}</option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <select
+                            value={data.config}
+                            onChange={(e) => setData(prev => ({ ...prev, config: e.target.value }))}
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pl-11"
+                        >
+                            <option value="" className="text-gray-900">Vyberte konfig...</option>
+                            {['4x2', '4x4', '6x2', '6x4', '6x6', '8x4', '8x6', '8x8'].map(opt => (
+                                <option key={opt} value={opt} className="text-gray-900">{opt}</option>
+                            ))}
+                        </select>
+                        <Settings2 className="absolute left-4 top-3.5 w-4 h-4 text-gray-400" />
+                    </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-200 mb-2">Značka vozidla</label>
@@ -82,10 +169,217 @@ export default function VehicleBuilder({
                 </div>
             </div>
 
-            {/* Nástavby */}
+            {/* Interactive Diagram */}
+            <div className="border border-white/10 rounded-xl bg-gradient-to-b from-[#1a1f2e] to-[#0f1219] p-2 relative overflow-hidden shadow-inner group select-none">
+                <div className="absolute top-4 left-4 text-xs font-mono text-cyan-400/50 flex flex-col pointer-events-none">
+                    <span>INTERACTIVE SCHEMATIC_VIEW</span>
+                    <span className="text-[10px] text-gray-500">DRAG AXLES TO ADJUST WHEELBASE</span>
+                    <span className="text-[10px] text-gray-500">DRAG BODIES TO MOVE / RESIZE</span>
+                </div>
+
+                <svg
+                    ref={svgRef}
+                    width="100%"
+                    height="350"
+                    viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+                    className="max-w-4xl mx-auto cursor-default"
+                    onMouseMove={handleSvgMouseMove}
+                    onMouseUp={handleSvgMouseUp}
+                    onMouseLeave={handleSvgMouseUp}
+                >
+                    <defs>
+                        <linearGradient id="chassisGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#4a5568" />
+                            <stop offset="50%" stopColor="#2d3748" />
+                            <stop offset="100%" stopColor="#1a202c" />
+                        </linearGradient>
+                        <linearGradient id="cabGrad" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor="#3182ce" />
+                            <stop offset="100%" stopColor="#2c5282" />
+                        </linearGradient>
+                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" opacity="0.05" />
+                        </pattern>
+                        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                            <feOffset dx="2" dy="2" result="offsetblur" />
+                            <feComponentTransfer>
+                                <feFuncA type="linear" slope="0.5" />
+                            </feComponentTransfer>
+                            <feMerge>
+                                <feMergeNode />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    <rect width="100%" height="100%" fill="url(#grid)" />
+
+                    {/* Ground */}
+                    <path d={`M 20 ${GROUND_Y + 24} L ${VIEW_WIDTH - 20} ${GROUND_Y + 24}`} stroke="#4a5568" strokeWidth="2" strokeDasharray="10 5" opacity="0.3" />
+
+                    {/* Chassis Rail */}
+                    <g filter="url(#shadow)">
+                        <rect
+                            x={CAB_X + 20}
+                            y={CHASSIS_Y}
+                            width={VIEW_WIDTH - 120}
+                            height="18"
+                            rx="2"
+                            fill="url(#chassisGrad)"
+                            stroke="#4a5568"
+                            strokeWidth="1"
+                        />
+                        {/* Chassis details */}
+                        <path d={`M ${CAB_X + 20} ${CHASSIS_Y + 9} L ${VIEW_WIDTH - 50} ${CHASSIS_Y + 9}`} stroke="black" strokeWidth="1" opacity="0.3" />
+                    </g>
+
+                    {/* Cabin (More detailed) */}
+                    <g filter="url(#shadow)" transform={`translate(${CAB_X}, ${CHASSIS_Y - 90})`}>
+                        {/* Main shape */}
+                        <path
+                            d="M 0 90 L 0 20 Q 0 0 20 0 L 80 0 Q 90 0 95 10 L 100 90 L 80 110 L 20 110 Z"
+                            fill="url(#cabGrad)"
+                            stroke="#2b6cb0"
+                            strokeWidth="2"
+                        />
+                        {/* Windows */}
+                        <path d="M 5 35 L 5 15 Q 5 10 15 10 L 35 10 L 35 35 Z" fill="#ebf8ff" stroke="#bee3f8" strokeWidth="1" opacity="0.8" />
+                        <path d="M 40 35 L 40 10 L 75 10 L 80 35 Z" fill="#ebf8ff" stroke="#bee3f8" strokeWidth="1" opacity="0.8" />
+
+                        {/* Grill & Lights */}
+                        <rect x="5" y="60" width="90" height="20" rx="2" fill="#1a202c" opacity="0.4" />
+                        <rect x="5" y="85" width="20" height="10" rx="2" fill="#ecc94b" /> {/* Headlight */}
+                        <rect x="75" y="85" width="20" height="10" rx="2" fill="#ecc94b" />
+
+                        {/* Door outline */}
+                        <path d="M 38 10 L 38 90 L 85 90 L 85 35 L 40 35" fill="none" stroke="black" strokeWidth="0.5" opacity="0.3" />
+                        {/* Handle */}
+                        <rect x="42" y="60" width="8" height="2" fill="black" opacity="0.5" />
+                    </g>
+                    {/* Brand Label */}
+                    <text x={CAB_X + 50} y={CHASSIS_Y - 40} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold" opacity="0.9" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{data.brand}</text>
+
+
+                    {/* Axles & Wheels */}
+                    {data.axlePositions?.map((x, i) => (
+                        <g
+                            key={`axle-${i}`}
+                            style={{ cursor: 'ew-resize' }}
+                            onMouseDown={(e) => {
+                                e.preventDefault()
+                                setDragging({ type: 'axle', id: i, startX: e.clientX, initialVal: x })
+                            }}
+                        >
+                            {/* Visual Axle connection to chassis */}
+                            <line x1={x} y1={CHASSIS_Y + 10} x2={x} y2={GROUND_Y} stroke="#2d3748" strokeWidth="8" />
+
+                            {/* Wheel group */}
+                            <g transform={`translate(${x}, ${GROUND_Y})`}>
+                                {/* Tire */}
+                                <circle r="26" fill="#1a202c" stroke="#171923" strokeWidth="2" />
+                                {/* Rim */}
+                                <circle r="16" fill="#cbd5e0" stroke="#718096" strokeWidth="1" />
+                                {/* Hub */}
+                                <circle r="6" fill="#4a5568" />
+                                {/* Bolts */}
+                                {Array.from({ length: 6 }).map((_, bi) => {
+                                    const angle = (bi * 60) * Math.PI / 180
+                                    return <circle key={bi} cx={Math.cos(angle) * 10} cy={Math.sin(angle) * 10} r="1.5" fill="#2d3748" />
+                                })}
+                            </g>
+
+                            {/* Drag Handle Indicator */}
+                            <g className="opacity-0 hover:opacity-100 transition-opacity">
+                                <circle cx={x} cy={GROUND_Y} r="30" fill="white" opacity="0.1" stroke="white" strokeWidth="1" strokeDasharray="3 3" />
+                                <text x={x} y={GROUND_Y + 45} textAnchor="middle" fill="white" fontSize="9" className="pointer-events-none">POSUVNÁ NÁPRAVA</text>
+                            </g>
+                        </g>
+                    ))}
+
+                    {/* Bodies Visualization */}
+                    {data.bodies.map((body, i) => {
+                        const isSelected = dragging?.type.startsWith('body') && dragging.id === body.id
+
+                        return (
+                            <g key={body.id} transform={`translate(${body.x}, ${CHASSIS_Y - body.height})`}>
+                                {/* Main Body Shape */}
+                                <rect
+                                    width={body.width}
+                                    height={body.height}
+                                    fill={getBodyColor(body.type)}
+                                    stroke="white"
+                                    strokeWidth={isSelected ? 2 : 0}
+                                    strokeOpacity="0.5"
+                                    opacity="0.9"
+                                    filter="url(#shadow)"
+                                    style={{ cursor: 'move' }}
+                                    onMouseDown={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        setDragging({ type: 'body-move', id: body.id, startX: e.clientX, initialVal: body.x })
+                                    }}
+                                />
+
+                                {/* Detail Graphics based on Type */}
+                                <BodyGraphics type={body.type} width={body.width} height={body.height} />
+
+                                {/* Resize Handle (Right edge) */}
+                                <rect
+                                    x={body.width - 10}
+                                    y={0}
+                                    width={20}
+                                    height={body.height}
+                                    fill="white"
+                                    opacity={0}
+                                    className="hover:opacity-20 cursor-ew-resize"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        setDragging({ type: 'body-resize', id: body.id, startX: e.clientX, initialVal: body.width })
+                                    }}
+                                />
+
+                                {/* Dimension Label */}
+                                <g transform={`translate(${body.width / 2}, -10)`}>
+                                    <rect x="-30" y="-12" width="60" height="14" rx="2" fill="black" opacity="0.7" />
+                                    <text textAnchor="middle" fill="white" fontSize="10" dy="-1">{Math.round(body.width * 10)} mm</text>
+                                </g>
+
+                                <text x={body.width / 2} y={body.height / 2} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{ textShadow: '0 1px 2px black' }} pointerEvents="none">
+                                    {body.type.toUpperCase()}
+                                </text>
+                            </g>
+                        )
+                    })}
+
+                    {/* Dimensions / Koty */}
+                    <g>
+                        {/* Wheelbase dimensions */}
+                        {data.axlePositions && data.axlePositions.length > 1 && (
+                            (() => {
+                                const p1 = data.axlePositions[0]
+                                const p2 = data.axlePositions[1]
+                                // Draw simple line below
+                                const dimY = GROUND_Y + 50
+                                return (
+                                    <g>
+                                        <line x1={p1} y1={dimY} x2={p2} y2={dimY} stroke="#718096" strokeWidth="1" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+                                        <text x={(p1 + p2) / 2} y={dimY - 5} textAnchor="middle" fill="#a0aec0" fontSize="10">{Math.round((p2 - p1) * 10)} mm</text>
+                                        <line x1={p1} y1={GROUND_Y + 30} x2={p1} y2={dimY + 5} stroke="#718096" strokeWidth="0.5" strokeDasharray="2 2" />
+                                        <line x1={p2} y1={GROUND_Y + 30} x2={p2} y2={dimY + 5} stroke="#718096" strokeWidth="0.5" strokeDasharray="2 2" />
+                                    </g>
+                                )
+                            })()
+                        )}
+                    </g>
+                </svg>
+            </div>
+
+            {/* List of Bodies */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <label className="block text-sm font-medium text-gray-200">Nástavby a vybavení</label>
+                    <label className="block text-sm font-medium text-gray-200">Seznam nástaveb</label>
                     <button
                         type="button"
                         onClick={addBody}
@@ -103,7 +397,10 @@ export default function VehicleBuilder({
                 )}
 
                 {data.bodies.map((body, index) => (
-                    <div key={body.id} className="flex gap-4 p-3 bg-white/5 rounded-lg border border-white/10 items-start group">
+                    <div key={body.id} className="flex gap-4 p-3 bg-white/5 rounded-lg border border-white/10 items-start group hover:border-purple-500/30 transition-colors">
+                        <div className="p-2 bg-black/20 rounded flex items-center justify-center h-full">
+                            <MoveHorizontal className="w-4 h-4 text-gray-500" />
+                        </div>
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-xs text-gray-400 mb-1">Typ</label>
@@ -126,160 +423,77 @@ export default function VehicleBuilder({
                                 />
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => removeBody(body.id)}
-                            className="mt-6 p-2 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded transition-colors"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex flex-col space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => removeBody(body.id)}
+                                className="p-2 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 ))}
-            </div>
-
-            {/* Diagram */}
-            <div className="border border-white/10 rounded-xl bg-[#1a1f2e] p-6 relative overflow-hidden">
-                <div className="absolute top-4 left-4 text-xs font-mono text-cyan-400/50">VEHICLE SCHEMATIC_VIEW_01</div>
-                <div className="flex justify-center items-center py-8">
-                    <VehicleDiagram config={data.config} bodies={data.bodies} brand={data.brand} />
-                </div>
             </div>
         </div>
     )
 }
 
-function VehicleDiagram({ config, bodies, brand }: { config: string, bodies: BodyItem[], brand: string }) {
-    // Config parsing
-    // 4x2 = 2 axles usually
-    // 6x.. = 3 axles
-    // 8x.. = 4 axles
-    const axles = config.startsWith('4') ? 2 : config.startsWith('6') ? 3 : config.startsWith('8') ? 4 : 2
+// Helpers
 
-    // Scale and positioning
-    const width = 600
-    const height = 200
-    const groundY = 160
-    const chassisY = 120
-    const wheelRadius = 24
+function getAxleCount(config: string) {
+    if (!config) return 2
+    return config.startsWith('4') ? 2 : config.startsWith('6') ? 3 : config.startsWith('8') ? 4 : 2
+}
 
-    // Axle positions
-    const getAxlePositions = (count: number) => {
-        const positions = []
-        // Front axle always around x=100
-        positions.push(100)
+function getDefaultAxlePositions(config: string) {
+    // Front axle at 100
+    const count = getAxleCount(config)
+    const positions = [100]
 
-        if (count === 2) {
-            positions.push(450) // Rear
-        } else if (count === 3) {
-            positions.push(400) // Rear 1
-            positions.push(480) // Rear 2
-        } else if (count === 4) {
-            positions.push(180) // Front 2
-            positions.push(400) // Rear 1
-            positions.push(480) // Rear 2
-        }
-        return positions
+    if (count === 2) {
+        positions.push(450)
+    } else if (count === 3) {
+        positions.push(400)
+        positions.push(480)
+    } else if (count === 4) {
+        positions.push(180) // 2nd Front
+        positions.push(450)
+        positions.push(530)
     }
+    return positions
+}
 
-    const axlePositions = getAxlePositions(axles)
+function getBodyColor(type: string) {
+    if (type.includes('Sklápěč')) return '#48bb78' // Green
+    if (type.includes('Cisterna')) return '#cbd5e0' // Silver
+    if (type.includes('Jeřáb') || type.includes('ruka')) return '#ed8936' // Orange
+    if (type.includes('Kontejner')) return '#ecc94b' // Yellow
+    if (type.includes('Skříňová')) return '#4299e1' // Blue
+    return '#a0aec0' // Gray default
+}
 
+function BodyGraphics({ type, width, height }: { type: string, width: number, height: number }) {
+    if (type.includes('Sklápěč')) {
+        return (
+            <path d={`M 0 0 L ${width} 0 L ${width - 10} ${height} L 5 ${height} Z`} fill="white" fillOpacity="0.2" />
+        )
+    }
+    if (type.includes('Cisterna')) {
+        return (
+            <rect x="0" y="0" width={width} height={height} rx={height / 2} fill="white" fillOpacity="0.1" stroke="white" strokeWidth="1" />
+        )
+    }
+    if (type.includes('Jeřáb') || type.includes('ruka')) {
+        return (
+            <g>
+                <path d={`M ${width / 2} ${height} L ${width / 2} 10 L ${width} 0`} stroke="white" strokeWidth="4" fill="none" opacity="0.5" />
+                <circle cx={width / 2} cy={height - 10} r="5" fill="white" opacity="0.5" />
+            </g>
+        )
+    }
+    // Cross bracing for others
     return (
-        <svg width="100%" height="250" viewBox={`0 0 ${width} ${height}`} className="max-w-2xl">
-            <defs>
-                <linearGradient id="chassisGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#4a5568" />
-                    <stop offset="100%" stopColor="#2d3748" />
-                </linearGradient>
-                <linearGradient id="cabGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#667eea" />
-                    <stop offset="100%" stopColor="#764ba2" />
-                </linearGradient>
-            </defs>
-
-            {/* Ground */}
-            <line x1="20" y1={groundY + wheelRadius} x2={width - 20} y2={groundY + wheelRadius} stroke="#4a5568" strokeWidth="2" strokeDasharray="10 5" opacity="0.5" />
-
-            {/* Chassis */}
-            <rect
-                x="60"
-                y={chassisY}
-                width={width - 100}
-                height="15"
-                rx="2"
-                fill="url(#chassisGrad)"
-                stroke="#718096"
-                strokeWidth="1"
-            />
-
-            {/* Cabin */}
-            <path
-                d={`M 50 ${chassisY} L 50 60 Q 50 40 70 40 L 130 40 L 130 ${chassisY} Z`}
-                fill="url(#cabGrad)"
-                stroke="#a3bffa"
-                strokeWidth="2"
-            />
-            {/* Window */}
-            <path d="M 60 70 L 60 55 Q 60 50 70 50 L 120 50 L 120 70 Z" fill="#ebf8ff" opacity="0.3" />
-            {/* Brand Label */}
-            <text x="90" y="100" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold" opacity="0.8">{brand}</text>
-
-
-            {/* Wheels */}
-            {axlePositions.map((x, i) => (
-                <g key={i}>
-                    <circle cx={x} cy={groundY} r={wheelRadius} fill="#1a202c" stroke="#4a5568" strokeWidth="4" />
-                    <circle cx={x} cy={groundY} r={wheelRadius - 10} fill="#2d3748" />
-                    <circle cx={x} cy={groundY} r={4} fill="#718096" />
-                </g>
-            ))}
-
-            {/* Bodies Visualization */}
-            {bodies.map((body, i) => {
-                // Simple logic to stack or place bodies
-                // Crane usually behind cab
-                // Tipper/Box at rear
-
-                const isCrane = body.type.toLowerCase().includes('jeřáb') || body.type.toLowerCase().includes('ruka') || body.type.toLowerCase().includes('crane')
-
-                let renderBody = null
-
-                if (isCrane) {
-                    renderBody = (
-                        <g transform={`translate(150, ${chassisY})`}>
-                            {/* Crane Base */}
-                            <rect x="0" y="-30" width="30" height="30" fill="#f6ad55" stroke="#dd6b20" />
-                            {/* Crane Arm */}
-                            <path d="M 15 -30 L 15 -80 L 80 -60" fill="none" stroke="#f6ad55" strokeWidth="6" strokeLinecap="round" />
-                            <circle cx="15" cy="-30" r="5" fill="#4a5568" />
-                            <circle cx="15" cy="-80" r="4" fill="#4a5568" />
-                        </g>
-                    )
-                } else if (body.type.includes('Sklápěč')) {
-                    renderBody = (
-                        <g transform={`translate(190, ${chassisY})`}>
-                            <path d="M 0 -10 L 300 -10 L 290 -60 L 10 -60 Z" fill="#48bb78" stroke="#2f855a" opacity="0.8" />
-                            <text x="150" y="-35" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">SKLÁPĚČ</text>
-                        </g>
-                    )
-                } else if (body.type.includes('Cisterna')) {
-                    renderBody = (
-                        <g transform={`translate(190, ${chassisY})`}>
-                            <rect x="0" y="-60" width="300" height="50" rx="20" fill="#cbd5e0" stroke="#718096" />
-                            <text x="150" y="-30" textAnchor="middle" fill="#2d3748" fontSize="12" fontWeight="bold">NAFTA/VODA</text>
-                        </g>
-                    )
-                } else {
-                    // Default Box / Valník
-                    renderBody = (
-                        <g transform={`translate(190, ${chassisY})`}>
-                            <rect x="0" y="-60" width="300" height="50" fill="#4299e1" stroke="#2b6cb0" opacity="0.8" />
-                            <text x="150" y="-30" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">{body.type.toUpperCase()}</text>
-                        </g>
-                    )
-                }
-
-                return <g key={i}>{renderBody}</g>
-            })}
-        </svg>
+        <path d={`M 0 0 L ${width} ${height} M ${width} 0 L 0 ${height}`} stroke="white" strokeWidth="1" opacity="0.1" />
     )
 }

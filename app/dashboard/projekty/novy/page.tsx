@@ -70,6 +70,7 @@ export default function NovyProjektPage() {
             vehicle_config: vehicleSpec.config,
             vehicle_brand: vehicleSpec.brand,
             bodies: vehicleSpec.bodies, // Pass array directly
+            axlePositions: vehicleSpec.axlePositions, // Store positions
             // Optional: map first body to legacy column if needed
             body_type: vehicleSpec.bodies.length > 0 ? vehicleSpec.bodies[0].type : null,
             accessories: accessories // Pass object directly

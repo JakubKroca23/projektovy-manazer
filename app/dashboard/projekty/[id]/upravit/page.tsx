@@ -41,6 +41,7 @@ export default function UpravitProjektPage() {
         vehicle_config: '',
         vehicle_brand: '',
         bodies: [] as BodyItem[],
+        axlePositions: [] as number[],
         accessories: [] as AccessoryItem[]
     })
 
@@ -85,6 +86,7 @@ export default function UpravitProjektPage() {
                     vehicle_config: data.vehicle_config || '',
                     vehicle_brand: data.vehicle_brand || '',
                     bodies: data.bodies ? (data.bodies as unknown as BodyItem[]) : [],
+                    axlePositions: data.axle_positions ? (data.axle_positions as unknown as number[]) : [],
                     accessories: data.accessories ? (data.accessories as unknown as AccessoryItem[]) : []
                 })
             }
@@ -104,7 +106,8 @@ export default function UpravitProjektPage() {
             ...prev,
             vehicle_config: spec.config,
             vehicle_brand: spec.brand,
-            bodies: spec.bodies
+            bodies: spec.bodies,
+            axlePositions: spec.axlePositions || []
         }))
     }
 
@@ -138,6 +141,7 @@ export default function UpravitProjektPage() {
                 vehicle_config: formData.vehicle_config || null,
                 vehicle_brand: formData.vehicle_brand || null,
                 bodies: formData.bodies, // JSONB
+                axle_positions: formData.axlePositions, // JSONB
                 accessories: formData.accessories // JSONB
             })
             .eq('id', id)
@@ -209,7 +213,8 @@ export default function UpravitProjektPage() {
                             initialData={{
                                 config: formData.vehicle_config,
                                 brand: formData.vehicle_brand,
-                                bodies: formData.bodies
+                                bodies: formData.bodies,
+                                axlePositions: formData.axlePositions
                             }}
                             onChange={handleVehicleChange}
                         />
