@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Plus, Wrench, CheckSquare } from 'lucide-react'
-import Link from 'next/link'
-import ProjectViews from '@/components/projects/project-views'
+import ProjectsClientPage from './projects-client-page'
 
 export default async function ProjektyPage() {
     const supabase = await createClient()
@@ -45,22 +43,18 @@ export default async function ProjektyPage() {
         .select('*')
         .order('start_date', { ascending: true })
 
-    return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Plánování zakázek</h1>
-                    <p className="text-gray-400">Přehled všech projektů a servisních akcí</p>
-                </div>
-            </div>
+    // Get user profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user!.id)
+        .single()
 
-            {/* Content View Switcher */}
-            <ProjectViews
-                projects={(projects || []) as any[]}
-                services={(services || []) as any[]}
-                currentUserId={user?.id}
-            />
-        </div >
+    return (
+        <ProjectsClientPage
+            projects={(projects || []) as any[]}
+            services={(services || []) as any[]}
+            user={profile}
+        />
     )
 }

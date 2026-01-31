@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, startOfYear, endOfYear, isBefore, isAfter, getISOWeek, getDate, isWeekend, isSameDay } from 'date-fns'
+import { format, differenceInDays, addDays, startOfYear, endOfYear, eachDayOfInterval, getISOWeek, getDate, isWeekend, isSameDay } from 'date-fns'
 import { cs } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, ChevronRight as ChevronRightIcon, Truck, Wrench, Plus, CheckSquare } from 'lucide-react'
+import { ChevronDown, ChevronRight as ChevronRightIcon, Truck, Wrench, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import QuickTaskModal from '@/components/modals/quick-task-modal'
+import { useTheme } from '@/components/layout/theme-provider'
 
 
 
@@ -54,11 +55,11 @@ export interface Service {
     created_at: string
 }
 
-export default function ProjectTimeline({ projects: initialProjects, services: initialServices = [] }: { projects: Project[], services?: Service[] }) {
+export default function ProjectTimeline({ projects: initialProjects, services: initialServices = [], zoom, onZoomChange, onExpandToggle, currentYear, onYearChange }: { projects: Project[], services?: Service[], zoom: number, onZoomChange: (zoom: number) => void, onExpandToggle: () => void, currentYear: Date, onYearChange: (direction: 'prev' | 'next') => void }) {
     const [projects, setProjects] = useState(initialProjects)
-    const [services, setServices] = useState(initialServices) // Use state for optimistic updates
-    const [zoom, setZoom] = useState(1) // 1 = 100%
-    const [currentDate, setCurrentDate] = useState(new Date())
+    const [services, setServices] = useState(initialServices)
+    const [currentDate, setCurrentDate] = useState(currentYear)
+    const { theme } = useTheme()
 
     // Default expanded all
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
@@ -95,6 +96,10 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     useEffect(() => {
         setServices(initialServices)
     }, [initialServices])
+
+    useEffect(() => {
+        setCurrentDate(currentYear)
+    }, [currentYear])
 
     // Generování časové osy
     const timelineData = useMemo(() => {
@@ -361,11 +366,22 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
         setExpandedJobs(newSet)
     }
 
-    const navigation = (direction: 'prev' | 'next') => {
-        const newDate = new Date(currentDate)
-        newDate.setFullYear(newDate.getFullYear() + (direction === 'next' ? 1 : -1))
-        setCurrentDate(newDate)
-    }
+    // Find today's position for the highlight
+    const todayPosition = useMemo(() => {
+        const today = new Date()
+        if (!isSameDay(today, today)) return null // Safety check
+
+        const dayIndex = timelineData.days.findIndex(d => d.isToday)
+        if (dayIndex === -1) return null
+
+        const leftPercent = (dayIndex / timelineData.totalDays) * 100
+        const widthPercent = (1 / timelineData.totalDays) * 100
+
+        return {
+            left: `${leftPercent}%`,
+            width: `${widthPercent}%`
+        }
+    }, [timelineData])
 
     const statusColors = {
         planning: 'bg-blue-500 border-blue-400',
@@ -375,104 +391,26 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     } as const
 
     return (
-        <div className="space-y-4 select-none" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-            {/* Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-[#1a1f2e] p-2 rounded-xl border border-white/10 backdrop-blur-sm">
-                <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar">
-                    {/* Year Navigation - Smaller */}
-                    <div className="flex items-center bg-black/20 rounded-lg p-1 mr-4">
-                        <button onClick={() => navigation('prev')} className="p-1 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors">
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <h3 className="text-sm font-bold text-gray-200 min-w-[60px] text-center">
-                            {format(currentDate, 'yyyy')}
-                        </h3>
-                        <button onClick={() => navigation('next')} className="p-1 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors">
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
+        <div className="h-full select-none flex flex-col" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center space-x-2">
-                        <Link
-                            href="/dashboard/ukoly/novy"
-                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-xs font-medium rounded-lg transition-all hover:border-cyan-500/50"
-                        >
-                            <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
-                            <span>Úkol</span>
-                        </Link>
-
-                        <Link
-                            href="/dashboard/servisy/novy"
-                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-200 text-xs font-medium rounded-lg transition-all hover:border-red-500/50"
-                        >
-                            <Wrench className="w-3.5 h-3.5" />
-                            <span>Servis</span>
-                        </Link>
-
-                        <Link
-                            href="/dashboard/projekty/novy"
-                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg shadow-lg hover:shadow-purple-500/20 transition-all"
-                        >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Projekt</span>
-                        </Link>
-                    </div>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                    <button
-                        onClick={() => {
-                            if (expandedProjects.size > 0 || showServices) {
-                                setExpandedProjects(new Set())
-                                setExpandedJobs(new Set())
-                                setShowServices(false)
-                            } else {
-                                setExpandedProjects(new Set(projects.map(p => p.id)))
-                                const jobs = new Set<string>()
-                                projects.forEach(p => p.jobs?.forEach(j => jobs.add(j.id)))
-                                setExpandedJobs(jobs)
-                                setShowServices(true)
-                            }
-                        }}
-                        className="text-xs text-gray-400 hover:text-white border border-white/10 px-2 py-1.5 rounded bg-black/20"
-                    >
-                        {expandedProjects.size > 0 || showServices ? 'Sbalit vše' : 'Rozbalit vše'}
-                    </button>
-
-                    <div className="flex items-center bg-black/20 rounded-lg p-1 space-x-2 px-3">
-                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Zoom</span>
-                        <input
-                            type="range"
-                            min="100"
-                            max="500"
-                            value={zoom * 100}
-                            onChange={(e) => setZoom(Number(e.target.value) / 100)}
-                            className="w-24 accent-purple-600 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <span className="text-[10px] text-gray-400 min-w-[3ch]">{Math.round(zoom * 100)}%</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Timeline Container */}
-            <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
+            {/* Timeline Container - Fullscreen */}
+            <div className="flex-1 bg-white dark:bg-[#1a1f2e] border dark:border-white/10 border-gray-200 overflow-hidden shadow-2xl relative transition-colors">
 
                 {/* Main Scrollable Area */}
-                <div className="max-h-[600px] overflow-y-auto overflow-x-auto custom-scrollbar">
+                <div className="h-full overflow-y-auto overflow-x-auto custom-scrollbar">
 
                     {/* Header Row - Sticky Top */}
-                    <div className={`flex border-b border-white/10 bg-[#1a1f2e] sticky top-0 z-50 min-w-full w-fit ${zoom > 2 ? 'h-16' : 'h-12'}`}>
-                        <div className={`w-72 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center pl-4 sticky left-0 bg-[#1a1f2e] z-50 shadow-[2px_0_10px_rgba(0,0,0,0.3)] ${zoom > 2 ? 'h-16' : 'h-12'}`}>
+                    <div className={`flex border-b dark:border-white/10 border-gray-200 bg-white dark:bg-[#1a1f2e] sticky top-0 z-50 min-w-full w-fit transition-colors ${zoom > 2 ? 'h-16' : 'h-12'}`}>
+                        <div className={`w-72 p-3 border-r dark:border-white/10 border-gray-200 shrink-0 font-medium text-gray-800 dark:text-gray-300 flex items-center pl-4 sticky left-0 bg-white dark:bg-[#1a1f2e] z-50 shadow-[2px_0_10px_rgba(0,0,0,0.1)] transition-colors ${zoom > 2 ? 'h-16' : 'h-12'}`}>
                             Projekt / Zakázka / Servis
                         </div>
                         <div className="flex-1 relative overflow-hidden" style={{ minWidth: `${zoom * 100}%` }}>
                             <div className="absolute inset-0 flex flex-col" ref={containerRef}>
 
                                 {/* Top Row: Months (Always visible) */}
-                                <div className="flex flex-1 border-b border-white/5">
+                                <div className="flex flex-1 border-b dark:border-white/5 border-gray-200">
                                     {monthGroups.map((group, i) => (
-                                        <div key={i} style={{ flex: group.count }} className="border-r border-white/5 text-xs text-gray-400 flex items-center justify-center capitalize truncate px-1 bg-white/[0.02]">
+                                        <div key={i} style={{ flex: group.count }} className="border-r dark:border-white/5 border-gray-200 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center capitalize truncate px-1 bg-gray-50 dark:bg-white/[0.02] transition-colors">
                                             {group.month}
                                         </div>
                                     ))}
@@ -484,20 +422,31 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                         {/* If Zoom > 3.5, show Days, else show Weeks */}
                                         {zoom > 3.5 ? (
                                             timelineData.days.map((day, i) => (
-                                                <div key={i} className={`flex-1 border-r border-white/5 flex flex-col items-center justify-center text-[10px] ${day.isWeekend ? 'bg-white/[0.03] text-gray-500' : 'text-gray-300'} ${day.isToday ? 'bg-blue-500/10 border-blue-500/30' : ''}`}>
-                                                    <span className={`uppercase ${day.isToday ? 'text-blue-400 font-bold' : ''}`}>{day.dayName}</span>
-                                                    <span className={`font-bold ${day.isToday ? 'text-blue-400' : ''}`}>{day.dayOfMonth}</span>
+                                                <div key={i} className={`flex-1 border-r dark:border-white/5 border-gray-200 flex flex-col items-center justify-center text-[10px] transition-colors ${day.isWeekend
+                                                        ? 'bg-gray-100 dark:bg-white/[0.03] text-gray-500'
+                                                        : 'text-gray-700 dark:text-gray-300'
+                                                    } ${day.isToday ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30' : ''}`}>
+                                                    <span className={`uppercase ${day.isToday ? 'text-blue-600 dark:text-blue-400 font-bold' : ''}`}>{day.dayName}</span>
+                                                    <span className={`font-bold ${day.isToday ? 'text-blue-600 dark:text-blue-400' : ''}`}>{day.dayOfMonth}</span>
                                                 </div>
                                             ))
 
                                         ) : (
                                             weekGroups.map((group, i) => (
-                                                <div key={i} style={{ flex: group.count }} className="border-r border-white/5 text-[10px] text-gray-500 flex items-center justify-center truncate px-1">
+                                                <div key={i} style={{ flex: group.count }} className="border-r dark:border-white/5 border-gray-200 text-[10px] text-gray-500 flex items-center justify-center truncate px-1">
                                                     T{group.week}
                                                 </div>
                                             ))
                                         )}
                                     </div>
+                                )}
+
+                                {/* Current Day Highlight - Full Height */}
+                                {todayPosition && (
+                                    <div
+                                        className="absolute top-0 bottom-0 bg-blue-400/10 dark:bg-blue-400/20 border-x-2 border-blue-500 dark:border-blue-400 pointer-events-none z-20"
+                                        style={todayPosition}
+                                    />
                                 )}
                             </div>
                         </div>

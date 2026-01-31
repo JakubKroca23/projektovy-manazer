@@ -1,9 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Table2 } from 'lucide-react'
 import ProjectTimeline, { Service } from '@/components/timeline/project-timeline'
-import ProjectTable from '@/components/projects/project-table'
 
 interface Project {
     id: string
@@ -36,42 +34,30 @@ interface Project {
 }
 
 export default function ProjectViews({ projects, services = [], currentUserId }: { projects: Project[], services?: Service[], currentUserId?: string }) {
-    const [view, setView] = useState<'timeline' | 'table'>('timeline')
+    const [zoom, setZoom] = useState(1) // 1 = 100%
+    const [currentYear, setCurrentYear] = useState(new Date())
+
+    const handleYearChange = (direction: 'prev' | 'next') => {
+        const newDate = new Date(currentYear)
+        newDate.setFullYear(newDate.getFullYear() + (direction === 'next' ? 1 : -1))
+        setCurrentYear(newDate)
+    }
+
+    const handleExpandToggle = () => {
+        // This will be handled in timeline component
+    }
 
     return (
-        <div className="space-y-6">
-            {/* View Switcher */}
-            <div className="flex items-center space-x-2 bg-white/5 w-fit p-1 rounded-lg border border-white/10">
-                <button
-                    onClick={() => setView('timeline')}
-                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'timeline'
-                        ? 'bg-purple-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
-                        }`}
-                >
-                    <Calendar className="w-4 h-4" />
-                    <span>Časová osa</span>
-                </button>
-                <button
-                    onClick={() => setView('table')}
-                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'table'
-                        ? 'bg-purple-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
-                        }`}
-                >
-                    <Table2 className="w-4 h-4" />
-                    <span>Tabulka</span>
-                </button>
-            </div>
-
-            {/* Content */}
-            <div className="min-h-[500px]">
-                {view === 'timeline' ? (
-                    <ProjectTimeline projects={projects} services={services} />
-                ) : (
-                    <ProjectTable projects={projects} />
-                )}
-            </div>
+        <div className="h-full">
+            <ProjectTimeline
+                projects={projects}
+                services={services}
+                zoom={zoom}
+                onZoomChange={setZoom}
+                onExpandToggle={handleExpandToggle}
+                currentYear={currentYear}
+                onYearChange={handleYearChange}
+            />
         </div>
     )
 }
