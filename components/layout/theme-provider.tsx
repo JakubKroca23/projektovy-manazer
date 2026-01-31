@@ -12,43 +12,44 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>('dark')
+    // Initialize theme from localStorage or default to 'dark'
+    const [theme, setTheme] = useState<Theme>(() => {
+        // Only access localStorage on client-side
+        if (typeof window !== 'undefined') {
+            const savedTheme = localStorage.getItem('theme') as Theme | null
+            return savedTheme || 'dark'
+        }
+        return 'dark'
+    })
     const [mounted, setMounted] = useState(false)
 
+    // Set mounted flag on client-side
     useEffect(() => {
         setMounted(true)
-        // Load theme from localStorage
-        const savedTheme = localStorage.getItem('theme') as Theme | null
-        if (savedTheme) {
-            setTheme(savedTheme)
-        } else {
-            // Default to dark theme
-            setTheme('dark')
-        }
     }, [])
 
+    // Update document class and localStorage when theme changes
     useEffect(() => {
-        if (mounted) {
+        if (typeof window !== 'undefined') {
             // Save to localStorage
             localStorage.setItem('theme', theme)
             // Update document class
             document.documentElement.classList.remove('light', 'dark')
             document.documentElement.classList.add(theme)
         }
-    }, [theme, mounted])
+    }, [theme])
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark')
     }
 
-    // Prevent flash of unstyled content
-    if (!mounted) {
-        return <>{children}</>
-    }
-
+    // Always render with context to prevent hydration mismatch
+    // Use opacity to hide content until mounted
     return (
         <ThemeContext.Provider value={{ theme, toggleTheme }}>
-            {children}
+            <div style={{ opacity: mounted ? 1 : 0 }} className="transition-opacity duration-150">
+                {children}
+            </div>
         </ThemeContext.Provider>
     )
 }

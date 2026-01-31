@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ProjectTimeline, { Service } from '@/components/timeline/project-timeline'
 
 interface Project {
@@ -33,9 +33,27 @@ interface Project {
     }[]
 }
 
-export default function ProjectViews({ projects, services = [], currentUserId }: { projects: Project[], services?: Service[], currentUserId?: string }) {
+export default function ProjectViews({ projects, services = [], currentUserId, currentYear: currentYearProp }: { projects: Project[], services?: Service[], currentUserId?: string, currentYear?: number }) {
     const [zoom, setZoom] = useState(1) // 1 = 100%
-    const [currentYear, setCurrentYear] = useState(new Date())
+
+    // Convert currentYear number to Date object
+    const [currentYear, setCurrentYear] = useState(() => {
+        if (currentYearProp) {
+            const date = new Date()
+            date.setFullYear(currentYearProp)
+            return date
+        }
+        return new Date()
+    })
+
+    // Update currentYear when prop changes
+    useEffect(() => {
+        if (currentYearProp) {
+            const date = new Date()
+            date.setFullYear(currentYearProp)
+            setCurrentYear(date)
+        }
+    }, [currentYearProp]) // Depend on currentYearProp
 
     const handleYearChange = (direction: 'prev' | 'next') => {
         const newDate = new Date(currentYear)
