@@ -106,6 +106,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                         </span>
                         <span>Vytvořeno {new Date(project.created_at).toLocaleDateString()}</span>
                         <span>{project.quantity} ks</span>
+                        <span>{progress}% Hotovo</span>
                     </div>
                 </div>
 
@@ -122,246 +123,278 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </div>
             </div>
 
+            {/* Dashboard Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
-            {/* Specifikace vozidla */}
-            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white flex items-center">
-                        <Truck className="w-5 h-5 mr-2 text-purple-400" />
-                        Specifikace vozidla
-                    </h2>
-                    <Link href={`/dashboard/projekty/${id}/upravit`} className="text-xs text-purple-400 hover:text-purple-300">
-                        Upravit konfiguraci
-                    </Link>
-                </div>
+                {/* Left Column - Project Info (Sticky?) */}
+                <div className="lg:col-span-1 space-y-6">
 
-                {/* VehicleBuilder removed as per user request */}
+                    {/* Integrated Project Info Card */}
+                    <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden divide-y divide-white/5">
+                        <div className="p-4 bg-white/5">
+                            <h2 className="text-lg font-semibold text-white flex items-center justify-between">
+                                <span className="flex items-center"><ClipboardList className="w-5 h-5 mr-2 text-cyan-400" /> Přehled projektu</span>
+                                <Link href={`/dashboard/projekty/${id}/upravit`} className="text-xs text-gray-400 hover:text-white flex items-center bg-white/5 px-2 py-1 rounded">
+                                    <PenTool className="w-3 h-3 mr-1" /> Upravit
+                                </Link>
+                            </h2>
+                        </div>
 
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
-                    <div className="space-y-3">
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Konfigurace</span> <span className="text-white font-medium">{project.vehicle_config || '-'}</span></div>
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Značka</span> <span className="text-white">{project.vehicle_brand || '-'}</span></div>
-                    </div>
-                    <div className="space-y-3">
-                        <div><span className="text-gray-400 block text-xs uppercase tracking-wider">Nástavby</span>
-                            <div className="text-white flex flex-col">
-                                {project.bodies && Array.isArray(project.bodies) && project.bodies.length > 0 ? (
-                                    project.bodies.map((b: any, i: number) => (
-                                        <span key={i}>{b?.type} ({((b?.width || 0) / 1000).toFixed(1)}m)</span>
-                                    ))
-                                ) : '-'}
+                        {/* CRM - Quick Stats */}
+                        <div className="p-4 grid grid-cols-2 gap-4">
+                            <div>
+                                <div className="text-xs text-gray-500 uppercase mb-1">Termín</div>
+                                <div className="text-white font-medium flex items-center text-sm">
+                                    <Calendar className="w-3.5 h-3.5 mr-1.5 text-orange-400" />
+                                    {project.deadline ? new Date(project.deadline).toLocaleDateString() : '-'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-500 uppercase mb-1">Manažer</div>
+                                <div className="text-white font-medium flex items-center text-sm">
+                                    <User className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
+                                    {project.project_manager || '-'}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* Zakázky (Jobs) */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-white">Zakázky</h2>
-                    <span className="text-sm text-gray-400">{project.jobs.length} celkem / {activeJobs} aktivní</span>
-                </div>
+                        {/* Description */}
+                        {project.job_description && (
+                            <div className="p-4">
+                                <div className="text-xs text-gray-500 uppercase mb-2">Popis práce</div>
+                                <p className="text-sm text-gray-300 leading-relaxed text-justify">
+                                    {project.job_description}
+                                </p>
+                            </div>
+                        )}
 
-                <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead>
-                                <tr className="bg-white/5 text-gray-400 border-b border-white/10">
-                                    <th className="px-6 py-3 font-medium">Název</th>
-                                    <th className="px-6 py-3 font-medium">Obj. číslo</th>
-                                    <th className="px-6 py-3 font-medium">Stav</th>
-                                    <th className="px-6 py-3 font-medium">Termín</th>
-                                    <th className="px-6 py-3 font-medium">Hotovo</th>
-                                    <th className="px-6 py-3 text-right"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {project.jobs.map((job: any) => (
-                                    <tr key={job.id} className="hover:bg-white/[0.02]">
-                                        <td className="px-6 py-3 font-medium text-white">{job.name}</td>
-                                        <td className="px-6 py-3 text-gray-300">{job.order_number || '-'}</td>
-                                        <td className="px-6 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium border ${job.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                job.status === 'delivered' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                                    job.status === 'canceled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                        'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                                }`}>
-                                                {job.status === 'in_production' ? 'Ve výrobě' :
-                                                    job.status === 'planning' ? 'Plánování' :
-                                                        job.status === 'done' ? 'Hotovo' :
-                                                            job.status === 'delivered' ? 'Dodáno' : job.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-3 text-gray-300">
-                                            {job.deadline ? new Date(job.deadline).toLocaleDateString() : '-'}
-                                        </td>
-                                        <td className="px-6 py-3 text-gray-300">
-                                            <div className="flex items-center space-x-2">
-                                                <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-cyan-500" style={{ width: `${job.completion_percentage}%` }}></div>
-                                                </div>
-                                                <span className="text-xs">{job.completion_percentage}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-3 text-right">
-                                            <div className="flex items-center justify-end space-x-2">
-                                                <Link
-                                                    href={`/dashboard/projekty/${id}/zakazky/${job.id}/upravit`}
-                                                    className="text-gray-500 hover:text-white p-1 hover:bg-white/10 rounded-lg transition-colors"
-                                                    title="Upravit zakázku"
-                                                >
-                                                    <PenTool className="w-4 h-4" />
-                                                </Link>
-                                                <button className="text-gray-500 hover:text-white p-1">
-                                                    <MoreHorizontal className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {project.jobs.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                                            Zatím žádné zakázky. Vytvořte první tlačítkem "Nová zakázka".
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-
-            {/* CRM Info */}
-            <div className="space-y-4">
-                <h2 className="text-xl font-semibold text-white">Detail zakázky (CRM)</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                        <div className="text-xs text-gray-400 uppercase mb-1">Zákazník</div>
-                        <div className="font-medium text-white flex items-center">
-                            <Building2 className="w-4 h-4 mr-2 text-purple-400" />
-                            {project.customer || '-'}
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                        <div className="text-xs text-gray-400 uppercase mb-1">Vedoucí projektu</div>
-                        <div className="font-medium text-white flex items-center">
-                            <User className="w-4 h-4 mr-2 text-cyan-400" />
-                            {project.project_manager || '-'}
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                        <div className="text-xs text-gray-400 uppercase mb-1">Termín dodání</div>
-                        <div className="font-medium text-white flex items-center">
-                            <Calendar className="w-4 h-4 mr-2 text-orange-400" />
-                            {project.deadline ? new Date(project.deadline).toLocaleDateString() : '-'}
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                        <div className="text-xs text-gray-400 uppercase mb-1">Stav projektu</div>
-                        <div className="font-medium text-white flex items-center">
-                            <Clock className="w-4 h-4 mr-2 text-green-400" />
-                            {progress}% Hotovo
-                        </div>
-                    </div>
-                </div>
-
-                {/* Advanced CRM Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                    <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
-                        <h3 className="text-sm font-semibold text-white border-b border-white/10 pb-2">Obchodní info</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span className="text-gray-400">OP-CRM:</span> <span className="text-white">{project.op_crm || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-400">Sektor:</span> <span className="text-white">{project.sector || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-400">Fakturační spol.:</span> <span className="text-white truncate max-w-[150px]">{project.billing_company || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-400">Místo dodání:</span> <span className="text-white truncate max-w-[150px]">{project.delivery_address || '-'}</span></div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
-                        <h3 className="text-sm font-semibold text-white border-b border-white/10 pb-2">Interní kódy</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span className="text-gray-400">OP OPV s.r.o.:</span> <span className="text-white">{project.op_opv_sro || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-400">OP Group Zákazník:</span> <span className="text-white">{project.op_group_zakaznik || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-400">OV Group s.r.o.:</span> <span className="text-white">{project.ov_group_sro || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-400">Zakázka s.r.o.:</span> <span className="text-white">{project.zakazka_sro || '-'}</span></div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3 p-4 rounded-lg bg-white/5 border border-white/10">
-                        <h3 className="text-sm font-semibold text-white border-b border-white/10 pb-2">Popis práce</h3>
-                        <p className="text-sm text-gray-300 leading-relaxed max-h-[150px] overflow-y-auto custom-scrollbar">
-                            {project.job_description || 'Bez popisu.'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Soubory */}
-            <ProjectFiles projectId={project.id} readOnly={!isOwner} />
-
-            {/* Layout Grid - Tasks & Team */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recent Tasks */}
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-white">Poslední úkoly</h2>
-                        <Link href={`/dashboard/ukoly?project=${project.id}`} className="text-sm text-purple-400 hover:text-purple-300">Zobrazit všechny</Link>
-                    </div>
-                    <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden">
-                        {project.tasks.slice(0, 5).map((task: any) => (
-                            <div key={task.id} className="flex items-center p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
-                                <div className={`w-2 h-2 rounded-full mr-4 ${task.priority === 'urgent' ? 'bg-red-500 shadow-lg shadow-red-500/50' :
-                                    task.priority === 'high' ? 'bg-orange-500' : 'bg-blue-500'
-                                    }`} />
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-white font-medium truncate">{task.title}</h4>
-                                    <div className="flex items-center text-xs text-gray-500 mt-1 space-x-3">
-                                        <span>{task.profiles?.full_name || 'Unassigned'}</span>
-                                        {task.due_date && (
-                                            <span className={new Date(task.due_date) < new Date() ? 'text-red-400' : ''}>
-                                                Termín: {new Date(task.due_date).toLocaleDateString()}
-                                            </span>
-                                        )}
+                        {/* Vehicle Spec Summary */}
+                        <div className="p-4">
+                            <div className="text-xs text-gray-500 uppercase mb-2 flex items-center">
+                                <Truck className="w-3 h-3 mr-1" /> Specifikace vozidla
+                            </div>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between border-b border-white/5 pb-1">
+                                    <span className="text-gray-400">Konfigurace</span>
+                                    <span className="text-white font-medium">{project.vehicle_config || '-'}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-white/5 pb-1">
+                                    <span className="text-gray-400">Značka</span>
+                                    <span className="text-white font-medium">{project.vehicle_brand || '-'}</span>
+                                </div>
+                                <div className="pt-1">
+                                    <span className="text-gray-400 block mb-1">Nástavby</span>
+                                    <div className="flex flex-wrap gap-1">
+                                        {project.bodies && Array.isArray(project.bodies) && project.bodies.length > 0 ? (
+                                            project.bodies.map((b: any, i: number) => (
+                                                <span key={i} className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300 text-xs">
+                                                    {b?.type}
+                                                </span>
+                                            ))
+                                        ) : <span className="text-gray-500">-</span>}
                                     </div>
                                 </div>
-                                <div className="ml-4">
-                                    <span className={`px-2 py-1 rounded text-xs font-medium border ${task.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                        task.status === 'review' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                            'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                                        }`}>
-                                        {task.status}
-                                    </span>
+                            </div>
+                        </div>
+
+                        {/* Customer & Address */}
+                        <div className="p-4">
+                            <div className="text-xs text-gray-500 uppercase mb-2">Zákazník</div>
+                            <div className="flex items-start mb-3">
+                                <Building2 className="w-4 h-4 mr-2 text-purple-400 mt-0.5" />
+                                <div>
+                                    <div className="text-white font-medium text-sm">{project.customer || 'Nespecifikován'}</div>
+                                    <div className="text-xs text-gray-400">{project.billing_company}</div>
                                 </div>
                             </div>
-                        ))}
-                        {project.tasks.length === 0 && (
-                            <div className="p-8 text-center text-gray-500">Zatím žádné úkoly</div>
-                        )}
+                            {project.delivery_address && (
+                                <div className="flex items-start">
+                                    <MapPin className="w-4 h-4 mr-2 text-red-400 mt-0.5" />
+                                    <div className="text-gray-300 text-xs">{project.delivery_address}</div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Internal Codes (Collapsible aesthetic via simple list) */}
+                        <div className="p-4 bg-black/20">
+                            <div className="text-xs text-gray-600 uppercase mb-2 font-bold">Interní kódy</div>
+                            <div className="space-y-1 text-xs text-gray-400">
+                                <div className="flex justify-between"><span>OP-CRM:</span> <span className="text-gray-300 font-mono">{project.op_crm || '-'}</span></div>
+                                <div className="flex justify-between"><span>OP OPV:</span> <span className="text-gray-300 font-mono">{project.op_opv_sro || '-'}</span></div>
+                                <div className="flex justify-between"><span>Zakázka:</span> <span className="text-gray-300 font-mono">{project.zakazka_sro || '-'}</span></div>
+                            </div>
+                        </div>
                     </div>
+
+                    {/* Team Members Widget */}
+                    <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden p-4">
+                        <h3 className="text-sm font-semibold text-white mb-3 flex items-center">
+                            <Users className="w-4 h-4 mr-2 text-green-400" /> Tým projektu
+                        </h3>
+                        <div className="space-y-3">
+                            {project.project_members.map((member: any) => (
+                                <div key={member.profiles.id} className="flex items-center justify-between group">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-xs text-white border border-white/10">
+                                            {member.profiles.avatar_url ? (
+                                                <img src={member.profiles.avatar_url} alt="" className="w-full h-full rounded-full" />
+                                            ) : (
+                                                member.profiles.full_name?.charAt(0) || '?'
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div className="text-white text-sm font-medium">{member.profiles.full_name}</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-xs text-gray-500 capitalize bg-white/5 px-2 py-0.5 rounded group-hover:bg-white/10 transition-colors">
+                                        {member.role}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                 </div>
 
-                {/* Team Members */}
-                <div className="space-y-4">
-                    <h2 className="text-xl font-semibold text-white">Tým projektu</h2>
-                    <div className="bg-[#1a1f2e] border border-white/10 rounded-xl p-4 space-y-4">
-                        {project.project_members.map((member: any) => (
-                            <div key={member.profiles.id} className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 flex items-center justify-center text-white font-bold">
-                                    {member.profiles.avatar_url ? (
-                                        <img src={member.profiles.avatar_url} alt="" className="w-full h-full rounded-full" />
-                                    ) : (
-                                        member.profiles.full_name?.charAt(0) || '?'
-                                    )}
-                                </div>
-                                <div>
-                                    <div className="text-white font-medium">{member.profiles.full_name}</div>
-                                    <div className="text-xs text-gray-400 capitalize">{member.role}</div>
-                                </div>
+                {/* Right Area - Operational (2 Cols) */}
+                <div className="lg:col-span-2 space-y-8">
+
+                    {/* Zakázky Table - Primary operational view */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-white flex items-center">
+                                <LayoutGrid className="w-5 h-5 mr-2 text-cyan-400" /> Zakázky
+                            </h2>
+                            <span className="text-xs px-2 py-1 bg-white/5 rounded-full text-gray-400 border border-white/5">
+                                {activeJobs} aktivní / {project.jobs.length} celkem
+                            </span>
+                        </div>
+
+                        <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/20">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="bg-white/5 text-gray-400 border-b border-white/10 text-xs uppercase tracking-wider">
+                                            <th className="px-6 py-4 font-medium">Název</th>
+                                            <th className="px-6 py-4 font-medium">Obj. číslo</th>
+                                            <th className="px-6 py-4 font-medium">Stav</th>
+                                            <th className="px-6 py-4 font-medium">Termín</th>
+                                            <th className="px-6 py-4 font-medium">Progres</th>
+                                            <th className="px-6 py-4 text-right"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {project.jobs.map((job: any) => (
+                                            <tr key={job.id} className="hover:bg-white/[0.02] transition-colors group">
+                                                <td className="px-6 py-4 font-medium text-white">{job.name}</td>
+                                                <td className="px-6 py-4 text-gray-400 text-xs font-mono">{job.order_number || '-'}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex px-2 py-1 rounded text-xs font-medium border ${job.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                                                        job.status === 'delivered' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                                                            job.status === 'canceled' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                                'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                        }`}>
+                                                        {job.status === 'in_production' ? 'Ve výrobě' :
+                                                            job.status === 'planning' ? 'Plánování' :
+                                                                job.status === 'done' ? 'Hotovo' :
+                                                                    job.status === 'delivered' ? 'Dodáno' : job.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-gray-300 text-xs">
+                                                    {job.deadline ? new Date(job.deadline).toLocaleDateString() : '-'}
+                                                </td>
+                                                <td className="px-6 py-4 text-gray-300">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                                            <div className={`h-full ${job.completion_percentage === 100 ? 'bg-green-500' : 'bg-cyan-500'}`} style={{ width: `${job.completion_percentage}%` }}></div>
+                                                        </div>
+                                                        <span className="text-xs w-8 text-right">{job.completion_percentage}%</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end space-x-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                        <Link
+                                                            href={`/dashboard/projekty/${id}/zakazky/${job.id}/upravit`}
+                                                            className="text-gray-400 hover:text-white p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                                                            title="Upravit zakázku"
+                                                        >
+                                                            <PenTool className="w-4 h-4" />
+                                                        </Link>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {project.jobs.length === 0 && (
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                                    <div className="flex flex-col items-center">
+                                                        <ClipboardList className="w-10 h-10 mb-3 opacity-20" />
+                                                        <p>Zatím žádné zakázky</p>
+                                                        <p className="text-xs mt-1">Vytvořte první tlačítkem "Nová zakázka"</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
-                        ))}
+                        </div>
+                    </div>
+
+
+                    {/* Files & Recent Tasks Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                        {/* Project Files */}
+                        <div>
+                            <ProjectFiles projectId={project.id} readOnly={!isOwner} />
+                        </div>
+
+                        {/* Recent Tasks */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-white flex items-center">
+                                    <CheckSquare className="w-5 h-5 mr-2 text-pink-400" /> Úkoly
+                                </h3>
+                                <Link href={`/dashboard/ukoly?project=${project.id}`} className="text-xs text-gray-400 hover:text-white transition-colors">
+                                    Všechny ({totalTasks})
+                                </Link>
+                            </div>
+
+                            <div className="bg-[#1a1f2e] border border-white/10 rounded-xl overflow-hidden min-h-[100px]">
+                                {project.tasks.length > 0 ? (
+                                    <div className="divide-y divide-white/5">
+                                        {project.tasks.slice(0, 5).map((task: any) => (
+                                            <div key={task.id} className="p-3 hover:bg-white/5 transition-colors flex items-start group">
+                                                <div className={`mt-1.5 w-2 h-2 rounded-full mr-3 flex-shrink-0 ${task.priority === 'urgent' ? 'bg-red-500' :
+                                                    task.priority === 'high' ? 'bg-orange-500' : 'bg-blue-500'
+                                                    }`} />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-sm text-gray-200 font-medium truncate">{task.title}</div>
+                                                    <div className="flex items-center mt-1 text-xs text-gray-500 space-x-2">
+                                                        <span>{task.profiles?.full_name?.split(' ')[0] || 'Unassigned'}</span>
+                                                        {task.due_date && <span className="text-gray-600">•</span>}
+                                                        {task.due_date && (
+                                                            <span className={new Date(task.due_date) < new Date() ? 'text-red-400' : ''}>
+                                                                {new Date(task.due_date).toLocaleDateString(undefined, { day: 'numeric', month: 'numeric' })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs px-1.5 py-0.5 rounded bg-white/5 text-gray-400 border border-white/5">
+                                                    {task.status}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-8 text-center text-gray-500 text-sm">
+                                        Žádné úkoly
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>

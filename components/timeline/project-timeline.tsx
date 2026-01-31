@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, startOfYear, endOfYear, isBefore, isAfter } from 'date-fns'
+import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, startOfYear, endOfYear, isBefore, isAfter, getISOWeek, getDate, isWeekend, isSameDay } from 'date-fns'
 import { cs } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, ChevronRight as ChevronRightIcon, Truck, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, ChevronRight as ChevronRightIcon, Truck, Wrench, Plus, CheckSquare } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -93,14 +93,21 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     const timelineData = useMemo(() => {
         const yearStart = startOfYear(currentDate)
         const yearEnd = endOfYear(currentDate)
+        const days = eachDayOfInterval({ start: yearStart, end: yearEnd })
 
-        // Always Year View Logic (Zoomable)
-        const months = eachMonthOfInterval({ start: yearStart, end: yearEnd })
         return {
-            headers: months.map(d => format(d, 'MMMM', { locale: cs })),
             startDate: yearStart,
             endDate: yearEnd,
-            totalDays: differenceInDays(yearEnd, yearStart) + 1,
+            totalDays: days.length,
+            days: days.map(d => ({
+                date: d,
+                dayOfMonth: getDate(d),
+                month: format(d, 'MMMM', { locale: cs }),
+                week: getISOWeek(d),
+                isWeekend: isWeekend(d),
+                isToday: isSameDay(d, new Date()),
+                dayName: format(d, 'EEEEEE', { locale: cs })
+            }))
         }
     }, [currentDate])
 
@@ -124,6 +131,36 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
             width: `${Math.max(widthPercent, 0.5)}%`
         }
     }
+
+    const monthGroups = useMemo(() => {
+        const groups: { month: string, count: number }[] = []
+        if (!timelineData.days.length) return groups
+
+        timelineData.days.forEach(d => {
+            const last = groups[groups.length - 1]
+            if (last && last.month === d.month) {
+                last.count++
+            } else {
+                groups.push({ month: d.month, count: 1 })
+            }
+        })
+        return groups
+    }, [timelineData])
+
+    const weekGroups = useMemo(() => {
+        const groups: { week: number, count: number }[] = []
+        if (!timelineData.days.length) return groups
+
+        timelineData.days.forEach(d => {
+            const last = groups[groups.length - 1]
+            if (last && last.week === d.week) {
+                last.count++
+            } else {
+                groups.push({ week: d.week, count: 1 })
+            }
+        })
+        return groups
+    }, [timelineData])
 
     // Drag Handlers
     const handleMouseDown = (e: React.MouseEvent, itemId: string, itemType: 'project' | 'job' | 'task' | 'service', type: 'move' | 'resize-start' | 'resize-end') => {
@@ -333,17 +370,50 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     return (
         <div className="space-y-4 select-none" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
             {/* Controls */}
-            <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-[#1a1f2e] p-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar">
+                    {/* Year Navigation - Smaller */}
+                    <div className="flex items-center bg-black/20 rounded-lg p-1 mr-4">
+                        <button onClick={() => navigation('prev')} className="p-1 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors">
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <h3 className="text-sm font-bold text-gray-200 min-w-[60px] text-center">
+                            {format(currentDate, 'yyyy')}
+                        </h3>
+                        <button onClick={() => navigation('next')} className="p-1 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center space-x-2">
+                        <Link
+                            href="/dashboard/ukoly/novy"
+                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-xs font-medium rounded-lg transition-all hover:border-cyan-500/50"
+                        >
+                            <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Úkol</span>
+                        </Link>
+
+                        <Link
+                            href="/dashboard/servisy/novy"
+                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-200 text-xs font-medium rounded-lg transition-all hover:border-red-500/50"
+                        >
+                            <Wrench className="w-3.5 h-3.5" />
+                            <span>Servis</span>
+                        </Link>
+
+                        <Link
+                            href="/dashboard/projekty/novy"
+                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg shadow-lg hover:shadow-purple-500/20 transition-all"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Projekt</span>
+                        </Link>
+                    </div>
+                </div>
+
                 <div className="flex items-center space-x-4">
-                    <button onClick={() => navigation('prev')} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <h3 className="text-xl font-bold text-white min-w-[150px] text-center capitalize">
-                        {format(currentDate, 'yyyy')}
-                    </h3>
-                    <button onClick={() => navigation('next')} className="p-2 hover:bg-white/10 rounded-lg text-white transition-colors">
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
                     <button
                         onClick={() => {
                             if (expandedProjects.size > 0 || showServices) {
@@ -358,24 +428,22 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                 setShowServices(true)
                             }
                         }}
-                        className="text-xs text-gray-400 hover:text-white ml-4 border border-white/10 px-2 py-1 rounded"
+                        className="text-xs text-gray-400 hover:text-white border border-white/10 px-2 py-1.5 rounded bg-black/20"
                     >
                         {expandedProjects.size > 0 || showServices ? 'Sbalit vše' : 'Rozbalit vše'}
                     </button>
-                </div>
 
-                <div className="flex items-center space-x-4">
                     <div className="flex items-center bg-black/20 rounded-lg p-1 space-x-2 px-3">
-                        <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">Zoom</span>
+                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Zoom</span>
                         <input
                             type="range"
                             min="100"
                             max="500"
                             value={zoom * 100}
                             onChange={(e) => setZoom(Number(e.target.value) / 100)}
-                            className="w-32 accent-purple-600 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                            className="w-24 accent-purple-600 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
                         />
-                        <span className="text-xs text-gray-400 min-w-[3ch]">{Math.round(zoom * 100)}%</span>
+                        <span className="text-[10px] text-gray-400 min-w-[3ch]">{Math.round(zoom * 100)}%</span>
                     </div>
                 </div>
             </div>
@@ -387,18 +455,43 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                 <div className="max-h-[600px] overflow-y-auto overflow-x-auto custom-scrollbar">
 
                     {/* Header Row - Sticky Top */}
-                    <div className="flex border-b border-white/10 bg-[#1a1f2e] h-12 sticky top-0 z-50 min-w-full w-fit">
-                        <div className="w-72 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center pl-4 sticky left-0 bg-[#1a1f2e] z-50 shadow-[2px_0_10px_rgba(0,0,0,0.3)]">
+                    <div className={`flex border-b border-white/10 bg-[#1a1f2e] sticky top-0 z-50 min-w-full w-fit ${zoom > 2 ? 'h-16' : 'h-12'}`}>
+                        <div className={`w-72 p-3 border-r border-white/10 shrink-0 font-medium text-gray-300 flex items-center pl-4 sticky left-0 bg-[#1a1f2e] z-50 shadow-[2px_0_10px_rgba(0,0,0,0.3)] ${zoom > 2 ? 'h-16' : 'h-12'}`}>
                             Projekt / Zakázka / Servis
                         </div>
                         <div className="flex-1 relative overflow-hidden" style={{ minWidth: `${zoom * 100}%` }}>
-                            {/* Only ref the content that changes width */}
-                            <div className="absolute inset-0 flex" ref={containerRef}>
-                                {timelineData.headers.map((header, i) => (
-                                    <div key={i} className="flex-1 border-r border-white/5 text-xs text-gray-400 flex items-center justify-center capitalize truncate px-1">
-                                        {header}
+                            <div className="absolute inset-0 flex flex-col" ref={containerRef}>
+
+                                {/* Top Row: Months (Always visible) */}
+                                <div className="flex flex-1 border-b border-white/5">
+                                    {monthGroups.map((group, i) => (
+                                        <div key={i} style={{ flex: group.count }} className="border-r border-white/5 text-xs text-gray-400 flex items-center justify-center capitalize truncate px-1 bg-white/[0.02]">
+                                            {group.month}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Bottom Row: Weeks / Days (Visible on Zoom) */}
+                                {zoom > 2 && (
+                                    <div className="flex flex-1">
+                                        {/* If Zoom > 3.5, show Days, else show Weeks */}
+                                        {zoom > 3.5 ? (
+                                            timelineData.days.map((day, i) => (
+                                                <div key={i} className={`flex-1 border-r border-white/5 flex flex-col items-center justify-center text-[10px] ${day.isWeekend ? 'bg-white/[0.03] text-gray-500' : 'text-gray-300'} ${day.isToday ? 'bg-blue-500/10 border-blue-500/30' : ''}`}>
+                                                    <span className={`uppercase ${day.isToday ? 'text-blue-400 font-bold' : ''}`}>{day.dayName}</span>
+                                                    <span className={`font-bold ${day.isToday ? 'text-blue-400' : ''}`}>{day.dayOfMonth}</span>
+                                                </div>
+                                            ))
+
+                                        ) : (
+                                            weekGroups.map((group, i) => (
+                                                <div key={i} style={{ flex: group.count }} className="border-r border-white/5 text-[10px] text-gray-500 flex items-center justify-center truncate px-1">
+                                                    T{group.week}
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
                     </div>
@@ -610,7 +703,7 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                         )
                     })}
                 </div>
-            </div>
+            </div >
 
             <div className="flex justify-end space-x-4 text-xs text-gray-500">
                 <div className="flex items-center"><div className="w-3 h-3 bg-red-600 rounded mr-2"></div> Servis</div>
@@ -619,6 +712,6 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                 <div className="flex items-center"><div className="w-3 h-3 bg-orange-600/60 rounded mr-2"></div> Zakázka (Vozidlo)</div>
                 <div className="flex items-center"><div className="w-3 h-3 bg-cyan-600/50 rounded mr-2"></div> Úkol</div>
             </div>
-        </div>
+        </div >
     )
 }
