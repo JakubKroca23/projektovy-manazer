@@ -7,6 +7,8 @@ import { ChevronLeft, ChevronRight, Calendar, GripVertical, ChevronDown, Chevron
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import QuickTaskModal from '@/components/modals/quick-task-modal'
+
 
 
 
@@ -80,6 +82,11 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     const containerRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
     const router = useRouter()
+
+    // Quick task modal state
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
+    const [selectedProjectForTask, setSelectedProjectForTask] = useState<string | undefined>()
+
 
     useEffect(() => {
         setProjects(initialProjects)
@@ -576,6 +583,16 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                         <Link href={`/dashboard/projekty/${project.id}`} className="truncate font-bold text-white hover:text-purple-400 transition-colors block flex-1">
                                             {project.name}
                                         </Link>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedProjectForTask(project.id)
+                                                setIsTaskModalOpen(true)
+                                            }}
+                                            className="p-1 hover:bg-cyan-500/20 rounded text-cyan-400 hover:text-cyan-300 transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Rychlý úkol"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
                                     </div>
 
                                     {/* Timeline Area (Project) */}
@@ -704,6 +721,17 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                     })}
                 </div>
             </div >
+
+            {/* Quick Task Modal */}
+            <QuickTaskModal
+                isOpen={isTaskModalOpen}
+                onClose={() => {
+                    setIsTaskModalOpen(false)
+                    setSelectedProjectForTask(undefined)
+                }}
+                projectId={selectedProjectForTask}
+                projects={projects.map(p => ({ id: p.id, name: p.name }))}
+            />
 
             <div className="flex justify-end space-x-4 text-xs text-gray-500">
                 <div className="flex items-center"><div className="w-3 h-3 bg-red-600 rounded mr-2"></div> Servis</div>
