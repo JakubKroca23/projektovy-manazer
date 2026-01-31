@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ThemeProvider } from '@/components/layout/theme-provider'
+import DashboardClientWrapper from '@/components/layout/dashboard-client-wrapper'
 
 export default async function DashboardLayout({
     children,
@@ -34,10 +35,12 @@ export default async function DashboardLayout({
 
                 {/* Main content - fullscreen */}
                 <div className="relative z-10 h-screen flex flex-col">
-                    {/* Page content takes full height minus navbar */}
-                    <main className="flex-1 overflow-hidden">
-                        {children}
-                    </main>
+                    {/* TopNavbar on all pages */}
+                    <DashboardClientWrapper user={user}>
+                        <main className="flex-1 overflow-hidden">
+                            {children}
+                        </main>
+                    </DashboardClientWrapper>
                 </div>
             </div>
         </ThemeProvider>

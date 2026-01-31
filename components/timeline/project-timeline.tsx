@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { format, differenceInDays, addDays, startOfYear, endOfYear, eachDayOfInterval, getISOWeek, getDate, isWeekend, isSameDay } from 'date-fns'
 import { cs } from 'date-fns/locale'
 import { ChevronDown, ChevronRight as ChevronRightIcon, Truck, Wrench, Plus } from 'lucide-react'
@@ -80,7 +80,15 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     const [dragStartX, setDragStartX] = useState(0)
     const [dragInitialDates, setDragInitialDates] = useState<{ start: Date, end: Date } | null>(null)
 
+    // Pan/Scroll State for Timeline
+    const [isPanning, setIsPanning] = useState(false)
+    const [panStartX, setPanStartX] = useState(0)
+    const [panStartY, setPanStartY] = useState(0)
+    const [scrollStartX, setScrollStartX] = useState(0)
+    const [scrollStartY, setScrollStartY] = useState(0)
+
     const containerRef = useRef<HTMLDivElement>(null)
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
     const router = useRouter()
 
@@ -366,6 +374,48 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
         setExpandedJobs(newSet)
     }
 
+    // Pan/Scroll handlers for timeline
+    const handlePanStart = (e: React.MouseEvent) => {
+        // Only start panning if clicking on the timeline grid (not on bars or buttons)
+        const target = e.target as HTMLElement
+
+        // Check if we're clicking on an empty cell/grid area
+        const isGridCell = target.classList.contains('flex-1') ||
+            target.classList.contains('border-r') ||
+            target.tagName === 'DIV' && !target.hasAttribute('onMouseDown')
+
+        // Don't pan if clicking on interactive elements
+        const isInteractive = target.closest('button') ||
+            target.closest('a') ||
+            target.closest('.cursor-move') ||
+            target.closest('.cursor-ew-resize') ||
+            target.classList.contains('absolute') // Bars are positioned absolute
+
+        if (isGridCell && !isInteractive) {
+            setIsPanning(true)
+            setPanStartX(e.clientX)
+            setPanStartY(e.clientY)
+            if (scrollContainerRef.current) {
+                setScrollStartX(scrollContainerRef.current.scrollLeft)
+                setScrollStartY(scrollContainerRef.current.scrollTop)
+            }
+        }
+    }
+
+    const handlePanMove = (e: React.MouseEvent) => {
+        if (isPanning && scrollContainerRef.current) {
+            const deltaX = panStartX - e.clientX
+            const deltaY = panStartY - e.clientY
+            scrollContainerRef.current.scrollLeft = scrollStartX + deltaX
+            scrollContainerRef.current.scrollTop = scrollStartY + deltaY
+        }
+    }
+
+    const handlePanEnd = () => {
+        setIsPanning(false)
+    }
+
+
     // Find today's position for the highlight
     const todayPosition = useMemo(() => {
         const today = new Date()
@@ -391,13 +441,31 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
     } as const
 
     return (
-        <div className="h-full select-none flex flex-col" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+        <div
+            className={`h-full select-none flex flex-col ${isPanning ? 'cursor-grabbing' : ''}`}
+            onMouseMove={(e: React.MouseEvent) => {
+                handleMouseMove(e)
+                handlePanMove(e)
+            }}
+            onMouseUp={() => {
+                handleMouseUp()
+                handlePanEnd()
+            }}
+            onMouseLeave={() => {
+                handleMouseUp()
+                handlePanEnd()
+            }}
+        >
 
             {/* Timeline Container - Fullscreen */}
             <div className="flex-1 bg-white dark:bg-[#1a1f2e] border dark:border-white/10 border-gray-200 overflow-hidden shadow-2xl relative transition-colors">
 
                 {/* Main Scrollable Area */}
-                <div className="h-full overflow-y-auto overflow-x-auto custom-scrollbar">
+                <div
+                    ref={scrollContainerRef}
+                    className={`h-full overflow-y-auto overflow-x-auto custom-scrollbar ${!isDragging ? 'cursor-grab' : ''}`}
+                    onMouseDown={handlePanStart}
+                >
 
                     {/* Header Row - Sticky Top */}
                     <div className={`flex border-b dark:border-white/10 border-gray-200 bg-white dark:bg-[#1a1f2e] sticky top-0 z-50 min-w-full w-fit transition-colors ${zoom > 2 ? 'h-16' : 'h-12'}`}>
@@ -423,8 +491,8 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                                         {zoom > 3.5 ? (
                                             timelineData.days.map((day, i) => (
                                                 <div key={i} className={`flex-1 border-r dark:border-white/5 border-gray-200 flex flex-col items-center justify-center text-[10px] transition-colors ${day.isWeekend
-                                                        ? 'bg-gray-100 dark:bg-white/[0.03] text-gray-500'
-                                                        : 'text-gray-700 dark:text-gray-300'
+                                                    ? 'bg-gray-100 dark:bg-white/[0.03] text-gray-500'
+                                                    : 'text-gray-700 dark:text-gray-300'
                                                     } ${day.isToday ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30' : ''}`}>
                                                     <span className={`uppercase ${day.isToday ? 'text-blue-600 dark:text-blue-400 font-bold' : ''}`}>{day.dayName}</span>
                                                     <span className={`font-bold ${day.isToday ? 'text-blue-600 dark:text-blue-400' : ''}`}>{day.dayOfMonth}</span>
