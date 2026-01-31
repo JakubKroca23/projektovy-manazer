@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Search, Sun, Moon, LayoutDashboard, FolderKanban, CheckSquare, Users, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Sun, Moon, LayoutDashboard, FolderKanban, CheckSquare, Users, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTheme } from './theme-provider'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -12,10 +12,10 @@ interface TopNavbarProps {
     user: any
     currentYear?: number
     onYearChange?: (direction: 'prev' | 'next') => void
+    showLegend?: boolean // Show timeline legend
 }
 
-export default function TopNavbar({ user, currentYear, onYearChange }: TopNavbarProps) {
-    const [isMenuOpen, setIsMenuOpen] = useState(false)
+export default function TopNavbar({ user, currentYear, onYearChange, showLegend = false }: TopNavbarProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const { theme, toggleTheme } = useTheme()
     const pathname = usePathname()
@@ -43,19 +43,11 @@ export default function TopNavbar({ user, currentYear, onYearChange }: TopNavbar
     }
 
     return (
-        <>
+        <div className="bg-white dark:bg-[#1a1f2e] border-b border-gray-200 dark:border-white/10 transition-colors">
             {/* Top Bar */}
-            <div className="h-12 bg-white dark:bg-[#1a1f2e] border-b border-gray-200 dark:border-white/10 flex items-center px-4 gap-4 relative z-50 transition-colors">
+            <div className="h-12 flex items-center px-4 gap-4 relative z-50 border-b border-gray-200 dark:border-white/10">
                 {/* Left Section */}
                 <div className="flex items-center gap-3">
-                    {/* Menu Toggle */}
-                    <button
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
-                    >
-                        {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                    </button>
-
                     {/* Logo/Title */}
                     <Link href="/dashboard" className="font-bold text-lg text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
                         Projektový Manager
@@ -129,33 +121,55 @@ export default function TopNavbar({ user, currentYear, onYearChange }: TopNavbar
                 </div>
             </div>
 
-            {/* Collapsible Menu Panel */}
-            {isMenuOpen && (
-                <div className="bg-white dark:bg-[#1a1f2e] border-b border-gray-200 dark:border-white/10 shadow-lg transition-colors">
-                    <nav className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                            {navItems.map((item) => {
-                                const Icon = item.icon
-                                const active = isActive(item.href)
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={() => setIsMenuOpen(false)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${active
-                                                ? 'bg-purple-600 text-white shadow-lg'
-                                                : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
-                                            }`}
-                                    >
-                                        <Icon className="w-4 h-4" />
-                                        <span className="text-sm font-medium">{item.name}</span>
-                                    </Link>
-                                )
-                            })}
+            {/* Navigation Bar - Always Visible */}
+            <div className="px-4 py-2 flex items-center justify-between">
+                {/* Navigation Items */}
+                <nav className="flex gap-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon
+                        const active = isActive(item.href)
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all ${active
+                                        ? 'bg-purple-600 text-white shadow-lg'
+                                        : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10'
+                                    }`}
+                            >
+                                <Icon className="w-4 h-4" />
+                                <span className="text-sm font-medium">{item.name}</span>
+                            </Link>
+                        )
+                    })}
+                </nav>
+
+                {/* Timeline Legend - Only shown when showLegend is true */}
+                {showLegend && (
+                    <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center">
+                            <div className="w-3 h-3 bg-red-600 rounded mr-1.5"></div>
+                            Servis
                         </div>
-                    </nav>
-                </div>
-            )}
-        </>
+                        <div className="flex items-center">
+                            <div className="w-3 h-3 bg-blue-500 rounded mr-1.5"></div>
+                            Plánování
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-3 h-3 bg-green-500 rounded mr-1.5"></div>
+                            Aktivní
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-3 h-3 bg-orange-600/60 rounded mr-1.5"></div>
+                            Zakázka
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-3 h-3 bg-cyan-600/50 rounded mr-1.5"></div>
+                            Úkol
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     )
 }

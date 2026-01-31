@@ -749,14 +749,6 @@ export default function ProjectTimeline({ projects: initialProjects, services: i
                 projectId={selectedProjectForTask}
                 projects={projects.map(p => ({ id: p.id, name: p.name }))}
             />
-
-            <div className="flex justify-end space-x-4 text-xs text-gray-500">
-                <div className="flex items-center"><div className="w-3 h-3 bg-red-600 rounded mr-2"></div> Servis</div>
-                <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 rounded mr-2"></div> Projekt (Plánování)</div>
-                <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded mr-2"></div> Projekt (Aktivní)</div>
-                <div className="flex items-center"><div className="w-3 h-3 bg-orange-600/60 rounded mr-2"></div> Zakázka (Vozidlo)</div>
-                <div className="flex items-center"><div className="w-3 h-3 bg-cyan-600/50 rounded mr-2"></div> Úkol</div>
-            </div>
         </div >
     )
 }
